@@ -63,24 +63,25 @@ void gwBtBegin() {}
 // in the middle of an app's own SD transfer.
 
 #if defined(GARNET_WEB_SD)
-// Included here, not in garnet_web.h (see the forward declarations there).
-#include <SD.h>
-#if SOC_SDMMC_HOST_SUPPORTED
-#include <SD_MMC.h>
-#endif
 
 namespace {
 constexpr uint32_t kSdRefreshMs = 30000;
 
-// SD (SPI) and SD_MMC are unrelated classes with the same info methods;
-// keep whichever the app gave us.
-fs::SDFS *sd = nullptr;
-#if SOC_SDMMC_HOST_SUPPORTED
-fs::SDMMCFS *sdmmc = nullptr;
-#endif
+// sdcard_type_t values from the SD libraries' sd_defines.h - not included
+// here (see gwSetSd in garnet_web.h for why).
+enum : uint8_t { kCardNone = 0, kCardMmc = 1, kCardSd = 2, kCardSdhc = 3 };
+
+struct Card {
+  void *obj = nullptr;
+  uint8_t (*type)(void *) = nullptr;
+  uint64_t (*size)(void *) = nullptr;
+  uint64_t (*total)(void *) = nullptr;
+  uint64_t (*used)(void *) = nullptr;
+} card;
+
 struct SdCache {
   bool mounted = false;
-  uint8_t type = CARD_NONE;
+  uint8_t type = kCardNone;
   uint64_t cardSize = 0, total = 0, used = 0;
 } cache; // guarded by gwLock
 uint32_t lastRefresh = 0;
@@ -96,10 +97,10 @@ SdCache snapshot() {
 String sdStatusStr() { return snapshot().mounted ? "Mounted" : "Not mounted"; }
 String sdTypeStr() {
   switch (snapshot().type) {
-  case CARD_MMC: return "MMC";
-  case CARD_SD: return "SD";
-  case CARD_SDHC: return "SDHC / SDXC";
-  case CARD_NONE: return "-";
+  case kCardMmc: return "MMC";
+  case kCardSd: return "SD";
+  case kCardSdhc: return "SDHC / SDXC";
+  case kCardNone: return "-";
   default: return "Unknown";
   }
 }
@@ -129,46 +130,25 @@ const GsGroup kSd = gsGroup("sd", "SD Card", "sdcard", kSdFields, "Device");
 
 void gwGroupsRegisterSd() { gsRegister(kSd); }
 
-void gwSetSd(fs::SDFS &card) {
-  sd = &card;
+void gwSetSdRaw(void *obj, uint8_t (*type)(void *), uint64_t (*size)(void *),
+                uint64_t (*total)(void *), uint64_t (*used)(void *)) {
+  card = {obj, type, size, total, used};
   refreshedOnce = false; // sample on the next gwLoop
 }
 
-#if SOC_SDMMC_HOST_SUPPORTED
-void gwSetSd(fs::SDMMCFS &card) {
-  sdmmc = &card;
-  refreshedOnce = false;
-}
-#endif
-
-namespace {
-template <typename Card> SdCache sample(Card &card) {
-  SdCache c;
-  c.type = card.cardType();
-  c.mounted = c.type != CARD_NONE;
-  if (c.mounted) {
-    c.cardSize = card.cardSize();
-    c.total = card.totalBytes();
-    c.used = card.usedBytes();
-  }
-  return c;
-}
-} // namespace
-
 void gwSdLoop() {
-  bool have = sd != nullptr;
-#if SOC_SDMMC_HOST_SUPPORTED
-  have = have || sdmmc != nullptr;
-#endif
-  if (!have) return;
+  if (card.obj == nullptr) return;
   if (refreshedOnce && millis() - lastRefresh < kSdRefreshMs) return;
   refreshedOnce = true;
   lastRefresh = millis();
   SdCache c;
-  if (sd) c = sample(*sd);
-#if SOC_SDMMC_HOST_SUPPORTED
-  else c = sample(*sdmmc);
-#endif
+  c.type = card.type(card.obj);
+  c.mounted = c.type != kCardNone;
+  if (c.mounted) {
+    c.cardSize = card.size(card.obj);
+    c.total = card.total(card.obj);
+    c.used = card.used(card.obj);
+  }
   gwLock();
   cache = c;
   gwUnlock();

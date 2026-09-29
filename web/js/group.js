@@ -230,6 +230,14 @@ class GwGroup extends GwElement {
         ? html`<gw-wifi></gw-wifi>`
         : g.widget === "files"
         ? html`<gw-files></gw-files>`
+        : g.widget === "log"
+        ? html`<gw-log></gw-log>`
+        : g.widget === "uart"
+        ? html`<gw-uart></gw-uart>`
+        : g.widget === "hw"
+        ? html`<gw-hw></gw-hw>`
+        : g.widget === "time"
+        ? html`<gw-time></gw-time>`
         : g.widget && g.widget.startsWith("img:")
         ? html`<gw-img .spec=${g.widget.slice(4)}></gw-img>`
         : nothing;

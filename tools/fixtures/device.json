@@ -426,6 +426,101 @@
       }
     },
     {
+      "id": "hw",
+      "title": "Hardware",
+      "icon": "system",
+      "section": "Tools",
+      "widget": "hw",
+      "fields": [],
+      "values": {}
+    },
+    {
+      "id": "serial",
+      "title": "Serial",
+      "icon": "sensor",
+      "section": "Tools",
+      "widget": "uart",
+      "fields": [
+        {
+          "key": "status",
+          "type": "info",
+          "label": "Status"
+        },
+        {
+          "key": "enabled",
+          "type": "toggle",
+          "label": "Enabled",
+          "def": false
+        },
+        {
+          "key": "rx",
+          "type": "number",
+          "label": "RX pin",
+          "def": -1,
+          "min": -1,
+          "max": 48,
+          "step": 1,
+          "showIf": "enabled"
+        },
+        {
+          "key": "tx",
+          "type": "number",
+          "label": "TX pin",
+          "def": -1,
+          "min": -1,
+          "max": 48,
+          "step": 1,
+          "help": "-1 = listen only",
+          "showIf": "enabled"
+        },
+        {
+          "key": "baud",
+          "type": "select",
+          "label": "Baud",
+          "def": 8,
+          "options": [
+            "1200",
+            "2400",
+            "4800",
+            "9600",
+            "19200",
+            "38400",
+            "57600",
+            "74880",
+            "115200",
+            "230400",
+            "460800",
+            "921600"
+          ],
+          "showIf": "enabled"
+        }
+      ],
+      "values": {
+        "status": "Open, 115200 baud, RX 16, TX 17",
+        "enabled": true,
+        "rx": 16,
+        "tx": 17,
+        "baud": 8
+      }
+    },
+    {
+      "id": "log",
+      "title": "Log",
+      "icon": "file",
+      "section": "Tools",
+      "widget": "log",
+      "fields": [
+        {
+          "key": "buffer",
+          "type": "info",
+          "label": "Keeps"
+        }
+      ],
+      "values": {
+        "buffer": "8.0 KB ring buffer"
+      }
+    },
+    {
       "id": "sd",
       "title": "SD Card",
       "icon": "sdcard",
@@ -473,6 +568,58 @@
       "widget": "files",
       "fields": [],
       "values": {}
+    },
+    {
+      "id": "time",
+      "title": "Clock",
+      "icon": "clock",
+      "section": "Device",
+      "widget": "time",
+      "fields": [
+        {
+          "key": "now",
+          "type": "info",
+          "label": "Local time"
+        },
+        {
+          "key": "sync",
+          "type": "info",
+          "label": "Source"
+        },
+        {
+          "key": "tz",
+          "type": "select",
+          "label": "Time zone",
+          "def": 0,
+          "options": [
+            "UTC",
+            "London, Lisbon",
+            "Amsterdam, Berlin, Paris"
+          ]
+        },
+        {
+          "key": "ntp",
+          "type": "toggle",
+          "label": "Internet time (NTP)",
+          "def": true
+        },
+        {
+          "key": "server",
+          "type": "text",
+          "label": "NTP server",
+          "def": "",
+          "maxLen": 64,
+          "placeholder": "pool.ntp.org",
+          "showIf": "ntp"
+        }
+      ],
+      "values": {
+        "now": "",
+        "sync": "NTP, 2m 3s ago",
+        "tz": 2,
+        "ntp": true,
+        "server": ""
+      }
     },
     {
       "id": "system",

@@ -8,17 +8,7 @@
 #if defined(GARNET_WEB_ETH)
 #include <ETH.h>
 #endif
-#if defined(GARNET_WEB_SD)
-#include <soc/soc_caps.h>
-// Forward declarations, not <SD.h> / <SD_MMC.h>: PlatformIO's dependency
-// scan ignores #if, so including them here would compile both libraries
-// into every project using garnet_web (and SD_MMC #warns on chips without
-// an SDIO host). The app includes the one it uses anyway.
-namespace fs {
-class SDFS;
-class SDMMCFS;
-} // namespace fs
-#endif
+
 
 // garnet_web - an iPadOS-settings-style browser UI for ESP32 devices that
 // also replaces WiFiManager. The left column lists every registered
@@ -34,6 +24,10 @@ class SDMMCFS;
 //   GARNET_WEB_SD    SD card info (the app mounts the card and passes it in)
 //   GARNET_WEB_FILES file manager (browse / up- / download / rename / delete)
 //                    for every filesystem registered with gwAddFs()
+//   GARNET_WEB_TIME  Clock: NTP + time zone, "use browser time" when offline
+//   GARNET_WEB_LOG   Log: the device log (log_x, ESP_LOGx) live in the browser
+//   GARNET_WEB_HW    Hardware: I2C scan, GPIO / ADC tester, input sweep
+//   GARNET_WEB_UART  Serial: Serial1 monitor on chosen pins, with send
 //   GARNET_WEB_OTA   firmware update (.bin upload) under System - needs a
 //                    partition table with two OTA slots (e.g. default.csv)
 //   (always)         System: chip/memory/uptime info, hostname, web password,
@@ -84,13 +78,25 @@ void gwSetEth(const GwEthConfig &cfg); // call before gwBegin
 #endif
 
 #if defined(GARNET_WEB_SD)
+void gwSetSdRaw(void *card, uint8_t (*type)(void *), uint64_t (*size)(void *),
+                uint64_t (*total)(void *), uint64_t (*used)(void *));
+
 // The app owns SD init (pins, SPI bus, SD vs SD_MMC differ per board);
-// garnet_web only reads card info from it. Call any time, even after
-// gwBegin - the SD group shows "Not mounted" until then.
-void gwSetSd(fs::SDFS &sd);
-#if SOC_SDMMC_HOST_SUPPORTED
-void gwSetSd(fs::SDMMCFS &sd); // boards with the card on the SDMMC bus (e.g. S3 camera boards)
-#endif
+// garnet_web only reads card info from it. Works with SD (SPI) and SD_MMC.
+// Call any time, even after gwBegin - the SD group shows "Not mounted"
+// until then.
+//
+// A template on purpose: it compiles in the app's file, where <SD.h> or
+// <SD_MMC.h> is already included, so garnet_web's own sources never include
+// either. PlatformIO's dependency scan follows every literal #include (even
+// behind #if) and would otherwise build SD / SD_MMC into every project.
+template <typename Card> void gwSetSd(Card &card) {
+  gwSetSdRaw(&card,
+             [](void *p) -> uint8_t { return static_cast<uint8_t>(static_cast<Card *>(p)->cardType()); },
+             [](void *p) -> uint64_t { return static_cast<Card *>(p)->cardSize(); },
+             [](void *p) -> uint64_t { return static_cast<Card *>(p)->totalBytes(); },
+             [](void *p) -> uint64_t { return static_cast<Card *>(p)->usedBytes(); });
+}
 #endif
 
 #if defined(GARNET_WEB_FILES)

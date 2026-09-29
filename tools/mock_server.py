@@ -63,6 +63,21 @@ def fs_path(fid, path):
     return FS_ROOT / fid / pathlib.Path(*parts) if parts else FS_ROOT / fid
 
 
+# Fake device log + serial stream that grow over time.
+LOG = {"text": "", "t": time.time()}
+UART = {"data": bytearray(), "t": time.time()}
+
+
+def grow_streams():
+    now = time.time()
+    while now - LOG["t"] > 1.5:
+        LOG["t"] += 1.5
+        LOG["text"] += f"[{int((LOG['t'] - STATE['boot']) * 1000):>8}][I][mock.cpp:1] heap free 181.{int(LOG['t']) % 10} KB\n"
+    while now - UART["t"] > 1:
+        UART["t"] += 1
+        UART["data"] += b"$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47\r\n"
+
+
 def fs_used(fid):
     return sum(f.stat().st_size for f in (FS_ROOT / fid).rglob("*") if f.is_file())
 
@@ -116,6 +131,8 @@ def live_values(g):
         up = int(time.time() - STATE["boot"])
         vals["uptime"] = f"{up // 60}m {up % 60}s"
         vals["heap"] = f"{180 + (up % 7) * 0.3:.1f} KB free of 297.1 KB"
+    if g["id"] == "time":
+        vals["now"] = time.strftime("%Y-%m-%d %H:%M:%S CEST")
     if g["id"] == "wifi":
         vals["rssi"] = f"{-56 - (int(time.time()) % 5)} dBm (good)"
     return vals
@@ -232,6 +249,25 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(data)
                 return
+            if path in ("/api/log", "/api/uart"):
+                grow_streams()
+                q = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+                since = int(q.get("since", ["0"])[0] or 0)
+                if path == "/api/log":
+                    buf = LOG["text"].encode()
+                    if since > len(buf):
+                        since = 0
+                    return self.send_json({"head": len(buf), "gap": False, "text": buf[since:].decode()})
+                buf = bytes(UART["data"])
+                if since > len(buf):
+                    since = 0
+                return self.send_json({"head": len(buf), "gap": False, "open": True, "canSend": True,
+                                       "hex": buf[since:][-4096:].hex()})
+            if path == "/api/hw":
+                pins = [{"n": n, **({"reserved": True} if 26 <= n <= 32 else {}),
+                         **({"console": True} if n in (43, 44) else {}),
+                         **({"adc": True} if n <= 20 else {})} for n in range(0, 49) if not 22 <= n <= 25]
+                return self.send_json({"sda": 8, "scl": 9, "tx": 43, "rx": 44, "pins": pins})
             if path == "/api/schema":
                 return self.send_json(schema())
             m = re.match(r"^/api/(group|live)/(\w+)$", path)
@@ -315,6 +351,26 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     "Set-Cookie": f"gw_s={tok}; Path=/; HttpOnly; SameSite=Strict"})
             if not self.authed():
                 return self.err(401, "login required")
+            if path == "/api/time":
+                g = group("time")
+                g["values"]["sync"] = "Set from browser"
+                return self.send_json({"ok": True})
+            if path == "/api/uart/send":
+                UART["data"] += (body.get("text", "") + {"lf": "\n", "cr": "\r", "crlf": "\r\n"}.get(body.get("eol"), "")).encode()
+                return self.send_json({"ok": True})
+            if path == "/api/hw/i2c":
+                if body.get("sda") == body.get("scl"):
+                    return self.err(422, "SDA / SCL must be two different usable output pins")
+                return self.send_json({"found": [0x3C, 0x76]})
+            if path == "/api/hw/gpio":
+                pin, op = body.get("pin"), body.get("op")
+                if 26 <= pin <= 32:
+                    return self.err(422, "Reserved for flash / PSRAM - not safe to touch")
+                if op == "adc":
+                    return self.send_json({"pin": pin, "mv": 1650})
+                return self.send_json({"pin": pin, "level": 0 if op in ("low", "pulldown") else 1})
+            if path == "/api/hw/inputs":
+                return self.send_json({"pins": [{"n": n, "level": n % 3 != 0} for n in range(0, 22)]})
             if path in ("/api/fs/mkdir", "/api/fs/delete", "/api/fs/rename"):
                 op = path.rsplit("/", 1)[1]
                 src = fs_path(body.get("fs", ""), body.get("from" if op == "rename" else "path", ""))

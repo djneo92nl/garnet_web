@@ -385,6 +385,356 @@ class GwFiles extends GwElement {
 }
 customElements.define("gw-files", GwFiles);
 
+// ---- Polling helper ---------------------------------------------------------------
+// Tool widgets poll while their tab is visible and stop when hidden or
+// removed - the same rule as the Info rows.
+
+class GwPoller extends GwElement {
+  pollMs = 1000;
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.onVis = () => this.schedule(0);
+    document.addEventListener("visibilitychange", this.onVis);
+    this.schedule(0, true);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    document.removeEventListener("visibilitychange", this.onVis);
+    clearTimeout(this.timer);
+  }
+
+  // `force`: the first fetch on open runs even in a hidden tab, so the
+  // widget never opens empty; only the repeating poll waits for visibility.
+  schedule(ms, force = false) {
+    clearTimeout(this.timer);
+    if (!force && document.visibilityState !== "visible") return;
+    this.timer = setTimeout(async () => {
+      try {
+        await this.tick();
+      } catch (_) {
+        // transient - next tick retries
+      }
+      this.schedule(this.pollMs);
+    }, ms);
+  }
+}
+
+// Terminal box that keeps the view pinned to the bottom unless the user
+// scrolled up to read.
+function gwTermUpdated(host) {
+  const box = host.querySelector(".gw-term");
+  if (box && host.stick !== false) box.scrollTop = box.scrollHeight;
+}
+function gwTermScrolled(host, e) {
+  const b = e.target;
+  host.stick = b.scrollHeight - b.scrollTop - b.clientHeight < 24;
+}
+
+const GW_TERM_MAX = 200000; // chars kept client-side
+
+// ---- <gw-log> -------------------------------------------------------------------------
+
+class GwLog extends GwPoller {
+  static properties = { text: { state: true }, paused: { state: true } };
+
+  constructor() {
+    super();
+    this.text = "";
+    this.since = 0;
+  }
+
+  async tick() {
+    if (this.paused) return;
+    const r = await gwApi.get(`/api/log?since=${this.since}`);
+    if (r.head < this.since) this.text += "\n--- device restarted ---\n";
+    let add = r.text;
+    if (r.gap && this.since) add = "\n--- older lines dropped ---\n" + add;
+    this.since = r.head;
+    if (add) this.text = (this.text + add).slice(-GW_TERM_MAX);
+  }
+
+  download() {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([this.text], { type: "text/plain" }));
+    a.download = `log-${new Date().toISOString().slice(0, 19).replace(/:/g, "")}.txt`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  updated() {
+    gwTermUpdated(this);
+  }
+
+  render() {
+    return html`
+      <pre class="gw-term" @scroll=${(e) => gwTermScrolled(this, e)}>${this.text || "Waiting for output\u2026"}</pre>
+      <div class="gw-buttons">
+        <button class="gw-btn" @click=${() => (this.paused = !this.paused)}>${this.paused ? "Resume" : "Pause"}</button>
+        <button class="gw-btn" @click=${() => (this.text = "")}>Clear</button>
+        <button class="gw-btn" ?disabled=${!this.text} @click=${this.download}>Download</button>
+      </div>`;
+  }
+}
+customElements.define("gw-log", GwLog);
+
+// ---- <gw-uart> ------------------------------------------------------------------------
+
+function gwHexToBytes(hex) {
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
+  return out;
+}
+
+class GwUart extends GwPoller {
+  static properties = { bytes: { state: true }, mode: { state: true }, st: { state: true }, note: { state: true } };
+  pollMs = 500;
+
+  constructor() {
+    super();
+    this.bytes = new Uint8Array(0);
+    this.since = 0;
+    this.mode = "text";
+    this.eol = "lf";
+  }
+
+  async tick() {
+    const r = await gwApi.get(`/api/uart?since=${this.since}`);
+    this.st = r;
+    if (r.head < this.since) this.bytes = new Uint8Array(0);
+    this.since = r.head;
+    if (!r.hex) return;
+    const add = gwHexToBytes(r.hex);
+    const merged = new Uint8Array(Math.min(this.bytes.length + add.length, GW_TERM_MAX));
+    const keep = merged.length - add.length;
+    merged.set(this.bytes.subarray(this.bytes.length - keep), 0);
+    merged.set(add.subarray(Math.max(0, add.length - merged.length)), Math.max(0, keep));
+    this.bytes = merged;
+  }
+
+  view() {
+    if (this.mode === "hex") {
+      const lines = [];
+      for (let i = 0; i < this.bytes.length; i += 16) {
+        const row = this.bytes.subarray(i, i + 16);
+        const hex = [...row].map((b) => b.toString(16).padStart(2, "0")).join(" ");
+        const asc = [...row].map((b) => (b >= 32 && b < 127 ? String.fromCharCode(b) : ".")).join("");
+        lines.push(`${i.toString(16).padStart(6, "0")}  ${hex.padEnd(47)}  ${asc}`);
+      }
+      return lines.join("\n");
+    }
+    // Text: decode as UTF-8 (lenient), drop CR so CRLF lines don't double.
+    return new TextDecoder("utf-8", { fatal: false }).decode(this.bytes).replace(/\r/g, "");
+  }
+
+  async send(e) {
+    e.preventDefault();
+    const input = this.querySelector("#gw-uart-in");
+    try {
+      await gwApi.post("/api/uart/send", { text: input.value, eol: this.eol });
+      input.value = "";
+      this.note = null;
+    } catch (err) {
+      this.note = { error: true, text: err.message };
+    }
+  }
+
+  updated() {
+    gwTermUpdated(this);
+  }
+
+  render() {
+    const st = this.st;
+    return html`
+      ${st && !st.open ? html`<p class="gw-note">Serial is off. Set pins and enable it below.</p>` : nothing}
+      <pre class="gw-term" @scroll=${(e) => gwTermScrolled(this, e)}>${this.view() || (st && st.open ? "Waiting for data\u2026" : "")}</pre>
+      <form class="gw-inline" @submit=${this.send}>
+        <input id="gw-uart-in" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"
+          placeholder=${st && st.canSend ? "Send\u2026" : "Listen only"} ?disabled=${!(st && st.canSend)} />
+        <select aria-label="Line ending" @change=${(e) => (this.eol = e.target.value)}>
+          <option value="lf" selected>LF</option><option value="crlf">CR LF</option>
+          <option value="cr">CR</option><option value="none">None</option>
+        </select>
+        <button class="gw-btn" type="submit" ?disabled=${!(st && st.canSend)}>Send</button>
+      </form>
+      ${this.note ? html`<p class="gw-note error">${this.note.text}</p>` : nothing}
+      <div class="gw-buttons">
+        <button class="gw-btn" @click=${() => (this.mode = this.mode === "hex" ? "text" : "hex")}>
+          ${this.mode === "hex" ? "Text view" : "Hex view"}</button>
+        <button class="gw-btn" @click=${() => (this.bytes = new Uint8Array(0))}>Clear</button>
+      </div>`;
+  }
+}
+customElements.define("gw-uart", GwUart);
+
+// ---- <gw-hw> ---------------------------------------------------------------------------
+// Likely parts per I2C address - several chips share addresses, so all
+// plausible ones are listed.
+const GW_I2C_NAMES = {
+  0x0c: "AK8963 magnetometer", 0x10: "VEML7700 light", 0x18: "LIS3DH accel / MCP9808",
+  0x19: "LSM303 accel", 0x1d: "ADXL345 / MMA8451", 0x1e: "HMC5883L compass",
+  0x20: "PCF8574 / MCP23017 IO", 0x21: "PCF8574 / MCP23017 IO", 0x23: "BH1750 light",
+  0x24: "PN532 NFC", 0x27: "PCF8574 (LCD backpack)", 0x28: "BNO055 IMU", 0x29: "VL53L0X / TSL2591 / BNO055",
+  0x2c: "AD5245 / CAP1188", 0x36: "MAX17048 fuel gauge / seesaw", 0x38: "AHT10/20 / FT6236 touch",
+  0x39: "TSL2561 / APDS9960", 0x3c: "SSD1306 / SH1106 OLED", 0x3d: "SSD1306 OLED (alt)",
+  0x40: "INA219 / HTU21D / SHT21 / PCA9685", 0x41: "INA219 (alt)", 0x44: "SHT3x / SHT4x",
+  0x45: "SHT3x (alt)", 0x48: "ADS1115 / TMP102 / PCF8591", 0x49: "ADS1115 / TSL2561",
+  0x4a: "ADS1115 / MAX44009", 0x4b: "ADS1115", 0x50: "AT24C EEPROM", 0x51: "PCF8563 RTC / EEPROM",
+  0x53: "ADXL345 (alt)", 0x57: "MAX30102 / EEPROM (DS3231 board)", 0x58: "SGP30 / SGP40",
+  0x5a: "MLX90614 / CCS811 / MPR121", 0x5b: "CCS811 (alt)", 0x5c: "AM2320 / BH1750 (alt)",
+  0x60: "MPL3115A2 / Si5351 / ATECC", 0x61: "SCD30 CO2", 0x62: "SCD40/41 CO2", 0x68: "DS3231 / DS1307 RTC / MPU6050",
+  0x69: "MPU6050 (alt) / ICM-20948", 0x6a: "LSM6DS IMU", 0x6b: "LSM6DS IMU (alt)",
+  0x70: "HT16K33 / TCA9548A mux", 0x76: "BME280 / BMP280 / BME680", 0x77: "BME280 / BMP180 / BME680 (alt)",
+};
+
+class GwHw extends GwElement {
+  static properties = {
+    info: { state: true }, scan: { state: true }, pinRes: { state: true },
+    inputs: { state: true }, busy: { state: true }, err: { state: true },
+  };
+
+  connectedCallback() {
+    super.connectedCallback();
+    gwApi.get("/api/hw").then((i) => (this.info = i)).catch((e) => (this.err = e.message));
+  }
+
+  pref(key, fallback) {
+    try {
+      const v = localStorage.getItem("gw-hw-" + key);
+      return v === null ? fallback : Number(v);
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  remember(key, v) {
+    try {
+      localStorage.setItem("gw-hw-" + key, String(v));
+    } catch (_) {}
+  }
+
+  num(id) {
+    return Number(this.querySelector(id).value);
+  }
+
+  async run(fn) {
+    this.busy = true;
+    this.err = null;
+    try {
+      await fn();
+    } catch (e) {
+      this.err = e.message;
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  i2c() {
+    const sda = this.num("#gw-sda"), scl = this.num("#gw-scl");
+    this.remember("sda", sda);
+    this.remember("scl", scl);
+    this.scan = null;
+    return this.run(async () => (this.scan = await gwApi.post("/api/hw/i2c", { sda, scl })));
+  }
+
+  gpio(op) {
+    const pin = this.num("#gw-pin");
+    this.remember("pin", pin);
+    return this.run(async () => (this.pinRes = { op, ...(await gwApi.post("/api/hw/gpio", { pin, op })) }));
+  }
+
+  readInputs() {
+    return this.run(async () => (this.inputs = (await gwApi.post("/api/hw/inputs")).pins));
+  }
+
+  pinSummary() {
+    const i = this.info;
+    const pick = (f) => i.pins.filter(f).map((p) => p.n).join(", ") || "none";
+    return html`
+      <div class="gw-row"><span class="gw-label"><span class="gw-lt">Reserved</span><span class="gw-help">Flash / PSRAM, never touched</span></span><span class="gw-value">${pick((p) => p.reserved)}</span></div>
+      <div class="gw-row"><span class="gw-label"><span class="gw-lt">Console</span><span class="gw-help">Serial log, read only</span></span><span class="gw-value">${pick((p) => p.console)}</span></div>
+      <div class="gw-row"><span class="gw-label"><span class="gw-lt">Input only</span></span><span class="gw-value">${pick((p) => p.inputOnly && !p.reserved)}</span></div>
+      <div class="gw-row"><span class="gw-label"><span class="gw-lt">ADC</span></span><span class="gw-value">${pick((p) => p.adc && !p.reserved)}</span></div>`;
+  }
+
+  render() {
+    const i = this.info;
+    if (!i) return this.err ? html`<p class="gw-note error">${this.err}</p>` : html`<div class="gw-empty">Loading\u2026</div>`;
+    const r = this.pinRes;
+    return html`
+      ${this.err ? html`<p class="gw-note error">${this.err}</p>` : nothing}
+      <div class="gw-card-title">I2C scan</div>
+      <div class="gw-inline">
+        <label>SDA <input id="gw-sda" type="number" min="0" max="63" .value=${String(this.pref("sda", i.sda))} /></label>
+        <label>SCL <input id="gw-scl" type="number" min="0" max="63" .value=${String(this.pref("scl", i.scl))} /></label>
+        <button class="gw-btn" ?disabled=${this.busy} @click=${this.i2c}>Scan</button>
+      </div>
+      ${this.scan
+        ? html`<div class="gw-listbox">
+            ${this.scan.found.length
+              ? this.scan.found.map(
+                  (a) => html`<div class="gw-row list"><span class="gw-mark"></span>
+                    <span class="gw-label"><b>0x${a.toString(16).padStart(2, "0")}</b>&nbsp; ${GW_I2C_NAMES[a] || "unknown device"}</span></div>`
+                )
+              : html`<div class="gw-row list"><span class="gw-mark"></span><span class="gw-label">No devices</span></div>`}
+          </div>`
+        : nothing}
+
+      <div class="gw-card-title">GPIO</div>
+      <div class="gw-inline">
+        <label>Pin <input id="gw-pin" type="number" min="0" max="63" .value=${String(this.pref("pin", 0))} /></label>
+        ${["read", "pullup", "pulldown", "high", "low", "adc"].map(
+          (op) => html`<button class="gw-btn" ?disabled=${this.busy} @click=${() => this.gpio(op)}>
+            ${{ read: "Read", pullup: "Pull-up", pulldown: "Pull-down", high: "High", low: "Low", adc: "ADC" }[op]}</button>`
+        )}
+      </div>
+      ${r
+        ? html`<p class="gw-note">GPIO ${r.pin}: <b>${r.mv !== undefined ? `${r.mv} mV` : r.level ? "HIGH" : "LOW"}</b>
+            ${r.op === "high" || r.op === "low" ? " (driving)" : r.op === "pullup" ? " (with pull-up)" : r.op === "pulldown" ? " (with pull-down)" : ""}</p>`
+        : nothing}
+
+      <div class="gw-card-title">Inputs</div>
+      <div class="gw-buttons">
+        <button class="gw-btn" ?disabled=${this.busy} @click=${this.readInputs}>Read All Pins</button>
+      </div>
+      ${this.inputs
+        ? html`<div class="gw-pins">${this.inputs.map(
+            (p) => html`<span class=${p.level ? "hi" : "lo"}><b>${p.n}</b> ${p.level ? "H" : "L"}</span>`
+          )}</div>
+          <p class="gw-note">Sets every free pin to input, then reads it once.</p>`
+        : nothing}
+
+      <div class="gw-card-title">Pins on this chip</div>
+      ${this.pinSummary()}`;
+  }
+}
+customElements.define("gw-hw", GwHw);
+
+// ---- <gw-time> -------------------------------------------------------------------------
+
+class GwTime extends GwElement {
+  static properties = { note: { state: true } };
+
+  async setFromBrowser() {
+    try {
+      await gwApi.post("/api/time", { epoch: Math.floor(Date.now() / 1000) });
+      this.note = { text: "Clock set" };
+    } catch (e) {
+      this.note = { error: true, text: e.message };
+    }
+  }
+
+  render() {
+    return html`
+      <div class="gw-buttons">
+        <button class="gw-btn" @click=${this.setFromBrowser}>Use Browser Time</button>
+      </div>
+      ${this.note ? html`<p class="gw-note ${this.note.error ? "error" : ""}">${this.note.text}</p>` : nothing}`;
+  }
+}
+customElements.define("gw-time", GwTime);
+
 // ---- <gw-img> ----------------------------------------------------------------
 // Live image (MJPEG stream or a plain picture) for GsGroup.widget "img:<src>".
 // A src starting with ':' is a port on the device's own host. While the

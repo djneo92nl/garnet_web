@@ -2,13 +2,25 @@
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
+#include <atomic>
+#include <new>
 #include <freertos/semphr.h>
 
 GwConfig gwCfg;
 
 namespace {
 
-enum class DeferKind : uint8_t { Changed, Action, Reboot };
+enum class DeferKind : uint8_t { Changed, Action, Reboot, Call };
+
+// A gwRunOnLoop job. Heap-allocated with the ctx copy trailing it; whoever
+// finishes last (the loop, or a caller that gave up waiting) frees it.
+struct CallJob {
+  void (*fn)(void *);
+  SemaphoreHandle_t done;
+  std::atomic<uint8_t> state; // 0 pending, 1 ran, 2 abandoned by caller
+  size_t size;
+  uint8_t ctx[]; // flexible array: copy of the caller's ctx
+};
 
 struct DeferItem {
   DeferKind kind;
@@ -54,6 +66,18 @@ void gwDeferLoop() {
     case DeferKind::Action:
       if (item.field->action) item.field->action();
       break;
+    case DeferKind::Call: {
+      CallJob *job = reinterpret_cast<CallJob *>(item.value);
+      job->fn(job->ctx);
+      uint8_t expected = 0;
+      if (job->state.compare_exchange_strong(expected, 1)) {
+        xSemaphoreGive(job->done); // caller still waiting: it copies out + frees
+      } else {
+        vSemaphoreDelete(job->done); // caller timed out and left: our job to free
+        free(job);
+      }
+      break;
+    }
     case DeferKind::Reboot:
       // Delay so the HTTP response ("rebooting...") actually leaves the
       // socket before the radio goes down.
@@ -66,6 +90,36 @@ void gwDeferLoop() {
     delay(50);
     ESP.restart();
   }
+}
+
+bool gwRunOnLoop(void (*fn)(void *ctx), void *ctx, size_t ctxSize, uint32_t timeoutMs) {
+  static_assert(sizeof(uintptr_t) <= sizeof(uint32_t), "job pointer must fit DeferItem.value");
+  CallJob *job = static_cast<CallJob *>(malloc(sizeof(CallJob) + ctxSize));
+  if (job == nullptr) return false;
+  job->fn = fn;
+  job->done = xSemaphoreCreateBinary();
+  new (&job->state) std::atomic<uint8_t>(0);
+  job->size = ctxSize;
+  memcpy(job->ctx, ctx, ctxSize);
+  if (job->done == nullptr) {
+    free(job);
+    return false;
+  }
+  push({DeferKind::Call, nullptr, nullptr, (uint32_t)(uintptr_t)job});
+  if (xSemaphoreTake(job->done, pdMS_TO_TICKS(timeoutMs)) == pdTRUE) {
+    memcpy(ctx, job->ctx, ctxSize);
+    vSemaphoreDelete(job->done);
+    free(job);
+    return true;
+  }
+  uint8_t expected = 0;
+  if (job->state.compare_exchange_strong(expected, 2)) return false; // loop frees it later
+  // The loop finished right as we timed out: it gave the semaphore.
+  xSemaphoreTake(job->done, portMAX_DELAY);
+  memcpy(ctx, job->ctx, ctxSize);
+  vSemaphoreDelete(job->done);
+  free(job);
+  return true;
 }
 
 void gwLock() {
@@ -89,6 +143,19 @@ void gwBegin(const GwConfig &cfg) {
 #if defined(GARNET_WEB_BT)
   gwBtBegin();
 #endif
+  // Tools, in sidebar order.
+#if defined(GARNET_WEB_HW)
+  gwHwBegin();
+#endif
+#if defined(GARNET_WEB_UART)
+  gwUartBegin();
+#endif
+#if defined(GARNET_WEB_LOG)
+  gwLogBegin();
+#endif
+#if defined(GARNET_WEB_TIME)
+  gwTimeBegin();
+#endif
   gwNetBegin();
   if (gwCfg.defaultPassword != nullptr && gwCfg.defaultPassword[0] != '\0') gwServerBegin();
 }
@@ -97,6 +164,12 @@ void gwLoop() {
   gwNetLoop();
 #if defined(GARNET_WEB_SD)
   gwSdLoop();
+#endif
+#if defined(GARNET_WEB_LOG)
+  gwLogLoop();
+#endif
+#if defined(GARNET_WEB_UART)
+  gwUartLoop();
 #endif
   gwDeferLoop();
 }

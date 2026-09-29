@@ -15,6 +15,10 @@ behind build flags:
 | (always) | System: hostname, chip/memory info, web password, backup/restore |
 | `GARNET_WEB_OTA` | Firmware update (.bin upload) under System, streamed into the inactive OTA slot and verified by `esp_ota_end` |
 | `GARNET_WEB_FILES` | Files group: browse, download, upload (streamed, via `.part`), mkdir, rename/move, delete (empty folders only) on every `gwAddFs()` filesystem |
+| `GARNET_WEB_TIME` | Clock: NTP + time zone (POSIX rules), "Use Browser Time" for offline boards |
+| `GARNET_WEB_LOG` | Log: `log_x` / `ESP_LOGx` output live in the browser (8 KB ring, `ets_install_putc2` + `esp_log_set_vprintf`) |
+| `GARNET_WEB_HW` | Hardware: I2C scan (IDF `i2c_master_probe`), GPIO read/pull/drive/ADC, input sweep. Flash/PSRAM pins refused, console pins read-only |
+| `GARNET_WEB_UART` | Serial: `Serial1` monitor on configurable pins/baud, text/hex view, send |
 | `GARNET_WEB_UI_FS` | Serve the UI from a filesystem (`gwSetUiFs`) instead of flash |
 
 It targets Arduino-ESP32 **3.x** only, through the pioarduino platform
@@ -52,7 +56,12 @@ It targets Arduino-ESP32 **3.x** only, through the pioarduino platform
   mode mirrors `garnetDarkVariant()` from garnet_ui_core. The copy is terse
   and device-like, with no chatty explanations. On wide screens the whole
   UI is a centered column.
-- **Group widgets** (`GsGroup.widget`): `wifi`, `system`, and
+- **Hardware from the server task goes through `gwRunOnLoop`.** It
+  copies a ctx struct to the loop task, runs it, and copies it back, with
+  a timeout. Tools (I2C, GPIO, UART send) never touch peripherals from
+  httpd.
+- **Group widgets** (`GsGroup.widget`): `wifi`, `system`, `files`, `log`,
+  `uart`, `hw`, `time`, and
   `img:<src>`, a live image such as a camera MJPEG stream, where `:81/stream` means
   a port on the device's own host. A stream must run on the app's *own*
   httpd instance, because its handler never returns and would otherwise
@@ -67,9 +76,11 @@ It targets Arduino-ESP32 **3.x** only, through the pioarduino platform
   That breaks every project on the machine, e.g. with "esp_eth_driver.h not
   found". The original is kept beside it as `pioarduino-build.py.<chip>`;
   copy it back to repair. `lib_ldf_mode = chain+` breaks the Network
-  library lookup instead. The fix for unwanted libraries is to not
-  `#include` them from public headers (see the SD forward declarations
-  in `garnet_web.h`).
+  library lookup instead. The fix for unwanted libraries: never give the
+  scanner a literal `#include` of an optional Arduino library. Take the object through a header
+  template that compiles in the app's file (`gwSetSd`, `gwAddFs`), or use
+  the precompiled IDF driver instead (I2C scan: `i2c_master_probe`, not Wire, which cost every build
+  27 KB).
 - Read the MAC from efuse (`esp_read_mac`), not `WiFi.macAddress()`. The
   latter returns zeros before the driver starts, which was hit on hardware
   as an AP named "-0000".

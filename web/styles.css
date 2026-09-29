@@ -391,3 +391,35 @@ a { color: inherit; }
 .gw-files .gw-date { width: 84px; }
 .gw-files .gw-label { overflow-wrap: anywhere; }
 @media (max-width: 700px) { .gw-files .gw-date { display: none; } }
+
+/* Terminal boxes (Log, Serial) */
+.gw-term {
+  height: 45vh;
+  min-height: 180px;
+  margin: 4px 0 6px;
+  padding: 4px 6px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font: 12px/1.4 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Inline tool forms (Hardware, Serial send) */
+.gw-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 4px 0 8px; }
+.gw-inline label { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; }
+.gw-inline input {
+  width: 64px;
+  padding: 1px 0;
+  border: 0;
+  border-bottom: 1px dotted var(--text);
+  outline: 0;
+  background: transparent;
+}
+.gw-inline input[type="text"] { flex: 1; min-width: 160px; width: auto; }
+.gw-inline input:focus { border-bottom: 1px solid var(--tag); }
+.gw-inline select { border: 1px solid var(--border); border-radius: 6px; background: var(--bg); padding: 1px 4px; }
+.gw-pins { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; font: 12px ui-monospace, Menlo, monospace; }
+.gw-pins span { padding: 1px 5px; border: 1px solid var(--border); border-radius: 4px; }
+.gw-pins span.hi { background: var(--tag); color: var(--tag-fg); }

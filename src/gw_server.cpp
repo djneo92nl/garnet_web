@@ -146,6 +146,24 @@ esp_err_t handleSession(httpd_req_t *req) {
   return sendJson(req, o);
 }
 
+// Optional feature modules, each owning a /api/<name> prefix.
+bool handleModules(httpd_req_t *req, const String &path, bool post, esp_err_t &err) {
+  (void)req; (void)path; (void)post; (void)err;
+#if defined(GARNET_WEB_TIME)
+  if (gwTimeHandle(req, path, post, err)) return true;
+#endif
+#if defined(GARNET_WEB_LOG)
+  if (gwLogHandle(req, path, post, err)) return true;
+#endif
+#if defined(GARNET_WEB_HW)
+  if (gwHwHandle(req, path, post, err)) return true;
+#endif
+#if defined(GARNET_WEB_UART)
+  if (gwUartHandle(req, path, post, err)) return true;
+#endif
+  return false;
+}
+
 esp_err_t handleApiGet(httpd_req_t *req) {
   String path = pathOf(req);
   if (path == "/api/session") return handleSession(req);
@@ -155,6 +173,8 @@ esp_err_t handleApiGet(httpd_req_t *req) {
 #if defined(GARNET_WEB_FILES)
   if (path.startsWith("/api/fs")) return gwFilesHandle(req, path, false);
 #endif
+  esp_err_t modErr;
+  if (handleModules(req, path, false, modErr)) return modErr;
   if (path == "/api/schema") return sendJson(req, static_cast<cJSON *>(gsSchemaJson()));
   if (tail(path, "/api/group/", id)) {
     const GsGroup *g = groupOr404(req, id);
@@ -292,6 +312,8 @@ esp_err_t handleApiPost(httpd_req_t *req) {
 #if defined(GARNET_WEB_FILES)
   if (path.startsWith("/api/fs/")) return gwFilesHandle(req, path, true);
 #endif
+  esp_err_t modErr;
+  if (handleModules(req, path, true, modErr)) return modErr;
 
   if (path == "/api/logout") {
     gwAuthLogout(req);
@@ -430,6 +452,44 @@ esp_err_t handleNotFound(httpd_req_t *req, httpd_err_code_t) {
 #if defined(GARNET_WEB_UI_FS)
 void gwSetUiFs(fs::FS &fs) { uiFs = &fs; }
 #endif
+
+// ---- Shared helpers for feature modules -------------------------------------------
+
+esp_err_t gwHttpJson(httpd_req_t *req, cJSON *json, const char *status) {
+  return sendJson(req, json, status);
+}
+esp_err_t gwHttpOk(httpd_req_t *req) { return sendOk(req); }
+esp_err_t gwHttpError(httpd_req_t *req, const char *status, const String &error) {
+  return sendError(req, status, error);
+}
+cJSON *gwHttpReadJson(httpd_req_t *req) { return readJson(req); }
+String gwHttpJsonStr(const cJSON *obj, const char *key) { return jsonStr(obj, key); }
+int gwHttpJsonInt(const cJSON *obj, const char *key, int fallback) {
+  const cJSON *v = cJSON_GetObjectItemCaseSensitive(obj, key);
+  return cJSON_IsNumber(v) ? v->valueint : fallback;
+}
+
+String gwHttpQuery(httpd_req_t *req, const char *key) {
+  size_t len = httpd_req_get_url_query_len(req);
+  if (len == 0 || len > 1024) return "";
+  char *q = static_cast<char *>(malloc(len + 1));
+  if (q == nullptr) return "";
+  String out;
+  char raw[256];
+  if (httpd_req_get_url_query_str(req, q, len + 1) == ESP_OK &&
+      httpd_query_key_value(q, key, raw, sizeof(raw)) == ESP_OK) {
+    for (const char *s = raw; *s; s++) { // %-decode (httpd leaves it encoded)
+      if (*s == '+') out += ' ';
+      else if (*s == '%' && isxdigit((unsigned char)s[1]) && isxdigit((unsigned char)s[2])) {
+        char hex[3] = {s[1], s[2], 0};
+        out += (char)strtol(hex, nullptr, 16);
+        s += 2;
+      } else out += *s;
+    }
+  }
+  free(q);
+  return out;
+}
 
 void gwServerBegin() {
   if (server != nullptr) return;

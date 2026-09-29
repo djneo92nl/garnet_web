@@ -157,5 +157,8 @@ void gwGroupsRegister() {
 #if defined(GARNET_WEB_FILES)
   gsRegister(kFilesGroup);
 #endif
+#if defined(GARNET_WEB_TIME)
+  gwTimeRegister();
+#endif
   gsRegister(kGroup);
 }

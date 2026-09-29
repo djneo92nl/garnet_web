@@ -4,6 +4,7 @@
 
 #include "garnet_web.h"
 
+#include <cJSON.h>
 #include <esp_http_server.h>
 
 extern GwConfig gwCfg;
@@ -16,6 +17,14 @@ void gwDeferChanged(const GsGroup *group, uint32_t mask);
 void gwDeferAction(const GsField *field);
 void gwDeferReboot(uint32_t delayMs);
 void gwDeferLoop();
+
+// Runs fn(ctx) on gwLoop's task and waits for it (up to timeoutMs) - for
+// server requests that must touch hardware (I2C, GPIO, UART) without
+// racing the app, which owns the hardware from its loop. ctx is copied in
+// and out (ctxSize bytes), so a timed-out call can never leave the loop
+// writing into a dead stack frame. False = timed out (gwLoop not called,
+// or blocked) - the job then still runs later, on its own copy.
+bool gwRunOnLoop(void (*fn)(void *ctx), void *ctx, size_t ctxSize, uint32_t timeoutMs);
 
 // ---- Shared state lock --------------------------------------------------------
 // One mutex for the small bits of state both tasks touch (scan results,
@@ -33,6 +42,38 @@ bool gwAuthChangePassword(const String &current, const String &next, String &why
 
 // ---- Server -------------------------------------------------------------------------
 void gwServerBegin();
+
+// JSON response helpers shared by the feature modules (gw_time, gw_log...).
+esp_err_t gwHttpJson(httpd_req_t *req, cJSON *json, const char *status = "200 OK");
+esp_err_t gwHttpOk(httpd_req_t *req);
+esp_err_t gwHttpError(httpd_req_t *req, const char *status, const String &error);
+cJSON *gwHttpReadJson(httpd_req_t *req); // null = error already sent
+String gwHttpJsonStr(const cJSON *obj, const char *key);
+int gwHttpJsonInt(const cJSON *obj, const char *key, int fallback);
+String gwHttpQuery(httpd_req_t *req, const char *key); // %-decoded, "" = absent
+
+// Feature modules: return true when they handled `path` (already
+// authenticated), with the send result in `err`.
+#if defined(GARNET_WEB_TIME)
+bool gwTimeHandle(httpd_req_t *req, const String &path, bool post, esp_err_t &err);
+void gwTimeBegin();
+void gwTimeRegister();
+#endif
+#if defined(GARNET_WEB_LOG)
+bool gwLogHandle(httpd_req_t *req, const String &path, bool post, esp_err_t &err);
+void gwLogBegin();
+void gwLogLoop();
+#endif
+#if defined(GARNET_WEB_HW)
+bool gwHwHandle(httpd_req_t *req, const String &path, bool post, esp_err_t &err);
+void gwHwBegin();
+#endif
+#if defined(GARNET_WEB_UART)
+bool gwUartHandle(httpd_req_t *req, const String &path, bool post, esp_err_t &err);
+void gwUartBegin();
+void gwUartLoop();
+bool gwUartUsesPin(int pin); // hardware tools leave the monitor's pins alone
+#endif
 
 // ---- Net ------------------------------------------------------------------------------
 void gwNetBegin();
