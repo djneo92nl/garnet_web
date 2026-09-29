@@ -1,0 +1,363 @@
+/* garnet_web - Palm OS 5 / Garnet look, matching garnet_ui on-device:
+   flat white page, navy title tag over a rule, bold "Label:" rows, 1px
+   round-rect buttons, square checkboxes, "▼" popup triggers, dotted
+   field underlines. Dark mode mirrors garnet_ui_core's garnetDarkVariant()
+   (black page, sky-blue tags, grey borders). Light DOM, one sheet. */
+
+:root {
+  --tag: #000080;       /* GarnetTheme.titleTag / selectedBg */
+  --tag-fg: #ffffff;    /* GarnetTheme.titleFg / selectedFg */
+  --bg: #ffffff;
+  --text: #000000;
+  --text-2: #555555;
+  --border: #000000;
+  --line: #c8c8c8;      /* quiet row separators */
+  --hover: #e8e8f4;
+  --danger: #c00000;
+  --overlay: rgba(0, 0, 0, 0.25);
+  --sidebar-w: 248px;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --tag: #87ceeb;
+    --tag-fg: #000000;
+    --bg: #000000;
+    --text: #ffffff;
+    --text-2: #a8a8a8;
+    --border: #808080;
+    --line: #333333;
+    --hover: #1a2a33;
+    --danger: #ff6060;
+    --overlay: rgba(0, 0, 0, 0.6);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+button, input, select { font: inherit; color: inherit; }
+a { color: inherit; }
+
+/* ---- Title tag: the Palm title bar -------------------------------------- */
+
+.gw-titlebar {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  border-bottom: 2px solid var(--tag);
+}
+.gw-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px 1px;
+  border-radius: 5px 5px 0 0;
+  background: var(--tag);
+  color: var(--tag-fg);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.gw-titlebar .gw-spacer { flex: 1; }
+
+/* ---- Layout ----------------------------------------------------------- */
+
+.gw-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-rows: auto 1fr;
+  height: 100vh;
+  height: 100dvh;
+}
+.gw-shell > .gw-titlebar { grid-column: 1 / -1; padding: 8px 12px 0; }
+
+/* Wide screens: the whole UI is one centered, fixed-width column - like
+   a Palm form sitting in the middle of the screen, not a stretched page. */
+@media (min-width: 701px) {
+  .gw-shell {
+    max-width: 960px;
+    margin: 0 auto;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+  }
+}
+.gw-titlebar .gw-logo { width: 18px; height: 18px; }
+.gw-titlebar .gw-logo svg { width: 100%; height: 100%; }
+.gw-titlebar .gw-where { padding-bottom: 2px; font-size: 13px; color: var(--text-2); }
+
+.gw-sidebar {
+  overflow-y: auto;
+  padding: 10px 0 24px;
+  border-right: 1px solid var(--border);
+}
+.gw-main { overflow-y: auto; padding: 12px 20px 40px; }
+.gw-main-inner { max-width: 680px; }
+
+.gw-menu-btn { display: none; }
+.gw-scrim { display: none; }
+
+@media (max-width: 700px) {
+  .gw-shell { grid-template-columns: 1fr; }
+  .gw-main { padding: 10px 12px 40px; }
+  .gw-menu-btn { display: inline-flex; }
+  .gw-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(82vw, var(--sidebar-w));
+    z-index: 20;
+    background: var(--bg);
+    transform: translateX(-100%);
+    transition: transform 0.15s ease-out;
+  }
+  .gw-shell.open .gw-sidebar { transform: none; }
+  .gw-shell.open .gw-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 15;
+    background: var(--overlay);
+  }
+}
+
+/* ---- Sidebar ------------------------------------------------------------ */
+
+.gw-nav-section { margin-bottom: 12px; }
+.gw-nav-section h3 {
+  margin: 0;
+  padding: 4px 12px 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.gw-nav button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.gw-nav button:hover { background: var(--hover); }
+.gw-nav button.active { background: var(--tag); color: var(--tag-fg); }
+.gw-glyph { display: inline-flex; flex: none; width: 16px; height: 16px; }
+.gw-glyph svg { width: 100%; height: 100%; }
+
+/* ---- Group page ------------------------------------------------------- */
+
+.gw-header { margin-bottom: 10px; }
+.gw-header .gw-titlebar { min-height: 30px; }
+.gw-header .gw-actions { display: flex; gap: 6px; padding-bottom: 4px; }
+
+/* Palm round-rect button */
+.gw-btn {
+  min-height: 24px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.gw-btn:hover { background: var(--hover); }
+.gw-btn:active, .gw-btn.primary:active { background: var(--tag); color: var(--tag-fg); }
+.gw-btn.primary { font-weight: 700; }
+.gw-btn.danger { color: var(--danger); }
+.gw-btn:disabled { opacity: 0.45; cursor: default; }
+
+.gw-note { margin: 6px 0 10px; font-size: 13px; color: var(--text-2); }
+.gw-note.error { color: var(--danger); font-weight: 600; }
+
+.gw-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.gw-card-title a { font-weight: 400; }
+
+.gw-card { margin-bottom: 8px; }
+.gw-card + .gw-card { border-top: 1px solid var(--line); padding-top: 6px; }
+
+.gw-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 28px;
+  padding: 2px 0;
+}
+.gw-row .gw-label { flex: 0 0 44%; min-width: 0; font-weight: 700; }
+.gw-row .gw-lt::after { content: ":"; }
+.gw-row .gw-help, .gw-row .gw-err {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-2);
+}
+.gw-row .gw-err { color: var(--danger); }
+.gw-row .gw-value { flex: 1; overflow-wrap: anywhere; }
+.gw-row.clickable { cursor: pointer; }
+.gw-row.clickable:hover { background: var(--hover); }
+.gw-row.list { padding: 2px 6px; }
+.gw-row.list .gw-label { flex: 1; font-weight: 400; }
+
+/* Palm text field: dotted underline, no box */
+.gw-row input[type="text"], .gw-row input[type="password"], .gw-row input[type="number"] {
+  flex: 1;
+  min-width: 0;
+  max-width: 280px;
+  padding: 1px 0;
+  border: 0;
+  border-bottom: 1px dotted var(--text);
+  border-radius: 0;
+  outline: 0;
+  background: transparent;
+}
+.gw-row input:focus { border-bottom-style: solid; border-bottom-color: var(--tag); }
+.gw-row input.invalid { border-bottom: 1px solid var(--danger); color: var(--danger); }
+.gw-row input::placeholder { color: var(--text-2); opacity: 0.8; }
+.gw-row input[type="number"] { max-width: 90px; }
+
+/* Palm popup trigger: "▼ value" */
+.gw-row select {
+  padding: 0 0 0 14px;
+  border: 0;
+  outline: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0h10L5 6z' fill='%23808080'/%3E%3C/svg%3E")
+    left center / 9px no-repeat;
+  cursor: pointer;
+}
+.gw-row select:focus-visible { outline: 1px dotted var(--text); }
+.gw-row select option { color: initial; background: initial; }
+
+/* Palm checkbox */
+.gw-check-box { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.gw-check-box input {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  border: 1px solid var(--text);
+  border-radius: 1px;
+  background: var(--bg);
+  display: inline-grid;
+  place-content: center;
+  cursor: pointer;
+}
+.gw-check-box input:checked::before {
+  content: "";
+  width: 8px;
+  height: 4px;
+  margin-top: -2px;
+  border-left: 2px solid var(--text);
+  border-bottom: 2px solid var(--text);
+  transform: rotate(-45deg);
+}
+.gw-check-box input:focus-visible { outline: 1px dotted var(--text); outline-offset: 2px; }
+.gw-check-box span { color: var(--text-2); font-size: 13px; }
+
+.gw-icon-btn {
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 24px;
+  margin-bottom: 2px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  cursor: pointer;
+}
+.gw-icon-btn svg { width: 16px; height: 16px; }
+
+/* WiFi list: bordered list box, like a Palm list */
+.gw-listbox { border: 1px solid var(--border); }
+.gw-listbox .gw-row + .gw-row { border-top: 1px solid var(--line); }
+.gw-bars { display: inline-flex; align-items: flex-end; gap: 1px; height: 12px; }
+.gw-bars i { display: block; width: 3px; background: var(--text); opacity: 0.2; }
+.gw-bars i.on { opacity: 1; }
+.gw-lock { width: 11px; height: 11px; }
+.gw-mark { width: 12px; text-align: center; font-weight: 700; }
+.gw-busy { font-size: 12px; font-weight: 400; color: var(--text-2); }
+.gw-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ---- Dialogs: Palm alert form ----------------------------------------- */
+
+.gw-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: var(--overlay);
+}
+.gw-dialog {
+  width: min(100%, 320px);
+  border: 2px solid var(--tag);
+  border-radius: 6px;
+  background: var(--bg);
+}
+.gw-dialog h2 {
+  margin: 0;
+  padding: 2px 8px;
+  background: var(--tag);
+  color: var(--tag-fg);
+  font-size: 15px;
+  text-align: center;
+}
+.gw-dialog-body { padding: 10px 10px 12px; }
+.gw-dialog p { margin: 0 0 10px; }
+.gw-dialog label { display: block; margin-bottom: 8px; font-weight: 700; }
+.gw-dialog label input {
+  display: block;
+  width: 100%;
+  margin-top: 2px;
+  padding: 2px 0;
+  border: 0;
+  border-bottom: 1px dotted var(--text);
+  outline: 0;
+  background: transparent;
+  font-weight: 400;
+}
+.gw-dialog label input:focus { border-bottom: 1px solid var(--tag); }
+.gw-dialog .gw-err { margin: 0 0 8px; color: var(--danger); font-weight: 600; }
+.gw-dialog .gw-dialog-actions { display: flex; gap: 8px; margin-top: 10px; }
+
+.gw-login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 16px;
+}
+
+.gw-empty { padding: 40px 0; color: var(--text-2); }
+
+.gw-buttons { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 0; }

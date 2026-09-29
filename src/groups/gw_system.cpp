@@ -1,0 +1,112 @@
+#include "../gw_internal.h"
+
+#include <esp_arduino_version.h>
+#include <esp_system.h>
+
+// System group - always compiled in. Everything a "what is this device
+// and how is it doing" page needs, plus the hostname (shared by WiFi and
+// Ethernet, so it lives here rather than in either). The web password
+// and backup/restore are drawn by the UI's "system" widget, not fields:
+// they need flows (current password, file upload) a field can't express.
+
+const char *const kGwSysGroup = "system";
+
+namespace {
+
+String chipStr() {
+  return String(ESP.getChipModel()) + " rev " + String(ESP.getChipRevision()) + ", " +
+         String(ESP.getChipCores()) + (ESP.getChipCores() == 1 ? " core" : " cores") + " @ " +
+         String(ESP.getCpuFreqMHz()) + " MHz";
+}
+String flashStr() { return gwFmtBytes(ESP.getFlashChipSize()); }
+String heapStr() {
+  return gwFmtBytes(ESP.getFreeHeap()) + " free of " + gwFmtBytes(ESP.getHeapSize());
+}
+String heapMinStr() { return gwFmtBytes(ESP.getMinFreeHeap()); }
+String heapBlockStr() { return gwFmtBytes(ESP.getMaxAllocHeap()); }
+String psramStr() {
+  if (ESP.getPsramSize() == 0) return "None";
+  return gwFmtBytes(ESP.getFreePsram()) + " free of " + gwFmtBytes(ESP.getPsramSize());
+}
+String uptimeStr() { return gwFmtUptime(millis() / 1000); }
+
+String resetStr() {
+  switch (esp_reset_reason()) {
+  case ESP_RST_POWERON: return "Power on";
+  case ESP_RST_EXT: return "External pin";
+  case ESP_RST_SW: return "Software restart";
+  case ESP_RST_PANIC: return "Crash (panic)";
+  case ESP_RST_INT_WDT: return "Interrupt watchdog";
+  case ESP_RST_TASK_WDT: return "Task watchdog";
+  case ESP_RST_WDT: return "Watchdog";
+  case ESP_RST_DEEPSLEEP: return "Deep sleep wake";
+  case ESP_RST_BROWNOUT: return "Brownout";
+  case ESP_RST_SDIO: return "SDIO";
+  default: return "Unknown";
+  }
+}
+
+String versionStr() { return gwCfg.appVersion ? gwCfg.appVersion : "-"; }
+String sdkStr() { return String("Arduino ") + ESP_ARDUINO_VERSION_STR + ", IDF " + ESP.getSdkVersion(); }
+
+String macStr() {
+  uint64_t m = ESP.getEfuseMac();
+  char buf[18];
+  // getEfuseMac() is little-endian: byte 0 of the MAC is the low byte.
+  snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:%02X:%02X", (uint8_t)m, (uint8_t)(m >> 8),
+           (uint8_t)(m >> 16), (uint8_t)(m >> 24), (uint8_t)(m >> 32), (uint8_t)(m >> 40));
+  return buf;
+}
+
+String hostnameStr() { return gwHostname() + ".local"; }
+
+bool hostnameOrEmpty(const String &v) { return v.length() == 0 || gsValidHostname(v); }
+
+const GsField kFields[] = {
+    gsWithHelp(gsWithPlaceholder(gsWithValidate(gsText("hostname", "Hostname", "", 32),
+                                                hostnameOrEmpty, "letters, digits and - only"),
+                                 "automatic"),
+               "Empty = automatic"),
+    gsInfo("mdns", "Address", hostnameStr),
+    gsInfo("version", "Firmware", versionStr),
+    gsInfo("chip", "Chip", chipStr),
+    gsInfo("flash", "Flash", flashStr),
+    gsInfo("heap", "Memory", heapStr),
+    gsInfo("heapmin", "Lowest free memory", heapMinStr),
+    gsInfo("heapblk", "Largest free block", heapBlockStr),
+    gsInfo("psram", "PSRAM", psramStr),
+    gsInfo("uptime", "Uptime", uptimeStr),
+    gsInfo("reset", "Last reset", resetStr),
+    gsInfo("mac", "MAC address", macStr),
+    gsInfo("sdk", "Software", sdkStr),
+};
+
+const GsGroup kGroup =
+    gsWithWidget(gsWithReboot(gsGroup(kGwSysGroup, "System", "system", kFields, "Device")), "system");
+
+} // namespace
+
+// Sidebar order = registration order: connections first, then the
+// device groups. App groups registered before gwBegin() still sit
+// between them - the UI orders by section ("Connections" first,
+// "Device" last, app sections in between).
+void gwGroupsRegisterWifi();
+void gwGroupsRegisterEth();
+void gwGroupsRegisterBt();
+void gwGroupsRegisterSd();
+
+void gwGroupsRegister() {
+#if defined(GARNET_WEB_WIFI)
+  gwGroupsRegisterWifi();
+#endif
+#if defined(GARNET_WEB_ETH)
+  gwGroupsRegisterEth();
+#endif
+#if defined(GARNET_WEB_BT)
+  gwGroupsRegisterBt();
+#endif
+#if defined(GARNET_WEB_SD)
+  gwGroupsRegisterSd();
+#endif
+  gsRegister(kGroup);
+}
