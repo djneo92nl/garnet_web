@@ -33,6 +33,6 @@ lib_deps =
   https://github.com/<you>/garnet_web.git
 ```
 
-Examples: `examples/esp32s3`, `examples/wt32_eth01` (Ethernet), `examples/cyd` (SD).
+Examples: `examples/esp32s3_camera` (camera live view + SD), `examples/wt32_eth01` (Ethernet), `examples/cyd` (SD).
 UI development without hardware: `python3 tools/mock_server.py`.
 See CLAUDE.md for the design rules.

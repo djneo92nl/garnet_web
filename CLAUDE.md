@@ -55,7 +55,7 @@ It targets Arduino-ESP32 **3.x** only, through the pioarduino platform
   a port on the device's own host. A stream must run on the app's *own*
   httpd instance, because its handler never returns and would otherwise
   block the settings UI. It is guarded with `gwAuthorized(req)`, since
-  the session cookie is sent to every port. See `examples/esp32s3/src/camera_group.cpp`.
+  the session cookie is sent to every port. See `examples/esp32s3_camera/src/camera_group.cpp`.
 - The WiFi scan uses the retry-on-`WIFI_SCAN_FAILED` workaround from
   garnet_ui's WiFi selector (`ESP_ERR_WIFI_STATE` race with `WiFi.begin`).
 - Read the MAC from efuse (`esp_read_mac`), not `WiFi.macAddress()`. The
@@ -70,7 +70,7 @@ It targets Arduino-ESP32 **3.x** only, through the pioarduino platform
   (the password is in `tools/fixtures/device.json`). The mock serves `web/`
   unbundled, so edit and reload. It re-implements the API, so keep it in
   sync with `gw_server.cpp`.
-- Firmware: `pio run` in `examples/esp32s3`, `examples/wt32_eth01` and
+- Firmware: `pio run` in `examples/esp32s3_camera`, `examples/wt32_eth01` and
   `examples/cyd`. The examples symlink this repo and `../garnet_settings`.
 - After changing `web/`, commit the regenerated `src/gw_ui_gz.h`
   (`python3 tools/build_ui.py`). `--check` verifies it is current.
