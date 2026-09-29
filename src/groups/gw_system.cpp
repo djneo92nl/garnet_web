@@ -58,6 +58,8 @@ String macStr() {
   return buf;
 }
 
+String chipIdStr() { return gwChipId(); }
+
 String hostnameStr() { return gwHostname() + ".local"; }
 
 bool hostnameOrEmpty(const String &v) { return v.length() == 0 || gsValidHostname(v); }
@@ -70,6 +72,7 @@ const GsField kFields[] = {
     gsInfo("mdns", "Address", hostnameStr),
     gsInfo("version", "Firmware", versionStr),
     gsInfo("chip", "Chip", chipStr),
+    gsInfo("chipid", "Chip ID", chipIdStr),
     gsInfo("flash", "Flash", flashStr),
     gsInfo("heap", "Memory", heapStr),
     gsInfo("heapmin", "Lowest free memory", heapMinStr),
@@ -94,6 +97,16 @@ void gwGroupsRegisterWifi();
 void gwGroupsRegisterEth();
 void gwGroupsRegisterBt();
 void gwGroupsRegisterSd();
+
+// Big-endian MAC order (byte 0 first), matching how the MAC is printed,
+// so the id reads the same as the MAC address minus the colons.
+String gwChipId() {
+  uint64_t m = ESP.getEfuseMac();
+  char buf[13];
+  snprintf(buf, sizeof(buf), "%02X%02X%02X%02X%02X%02X", (uint8_t)m, (uint8_t)(m >> 8),
+           (uint8_t)(m >> 16), (uint8_t)(m >> 24), (uint8_t)(m >> 32), (uint8_t)(m >> 40));
+  return buf;
+}
 
 void gwGroupsRegister() {
 #if defined(GARNET_WEB_WIFI)

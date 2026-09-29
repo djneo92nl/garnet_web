@@ -96,4 +96,8 @@ enum class GwNetMode : uint8_t {
 GwNetMode gwNetMode();
 IPAddress gwNetIP();     // current uplink address (AP address in Portal mode)
 String gwHostname();     // effective hostname (what name.local resolves)
+// Unique, stable device id: the 48-bit factory (efuse) MAC as 12 uppercase
+// hex digits, e.g. "2884855F1E08". Same value System shows as Chip ID -
+// use it to key a device in a backend/fleet list.
+String gwChipId();
 bool gwPortalActive();   // the setup AP is up (may overlap an uplink for a grace period)

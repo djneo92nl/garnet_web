@@ -81,6 +81,7 @@
         { "key": "mdns", "type": "info", "label": "Address" },
         { "key": "version", "type": "info", "label": "Firmware" },
         { "key": "chip", "type": "info", "label": "Chip" },
+        { "key": "chipid", "type": "info", "label": "Chip ID" },
         { "key": "flash", "type": "info", "label": "Flash" },
         { "key": "heap", "type": "info", "label": "Memory" },
         { "key": "heapmin", "type": "info", "label": "Lowest free memory" },
@@ -91,7 +92,7 @@
         { "key": "mac", "type": "info", "label": "MAC address" },
         { "key": "sdk", "type": "info", "label": "Software" }
       ],
-      "values": { "hostname": "", "mdns": "relay-box-a1b2.local", "version": "1.0.0", "chip": "ESP32-D0WD-V3 rev 3, 2 cores @ 240 MHz", "flash": "4.0 MB", "heap": "182.4 KB free of 297.1 KB", "heapmin": "151.0 KB", "heapblk": "107.9 KB", "psram": "None", "uptime": "0m 0s", "reset": "Power on", "mac": "A8:03:2A:A1:B2:C0", "sdk": "Arduino 3.3.3, IDF v5.5.1" }
+      "values": { "hostname": "", "mdns": "relay-box-a1b2.local", "version": "1.0.0", "chip": "ESP32-D0WD-V3 rev 3, 2 cores @ 240 MHz", "chipid": "A8032AA1B2C0", "flash": "4.0 MB", "heap": "182.4 KB free of 297.1 KB", "heapmin": "151.0 KB", "heapblk": "107.9 KB", "psram": "None", "uptime": "0m 0s", "reset": "Power on", "mac": "A8:03:2A:A1:B2:C0", "sdk": "Arduino 3.3.3, IDF v5.5.1" }
     }
   ],
   "wifi": {
