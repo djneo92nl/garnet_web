@@ -382,3 +382,12 @@ a { color: inherit; }
   color: #888;
   font-size: 13px;
 }
+
+/* File manager */
+.gw-files .gw-row.selected { background: var(--tag); color: var(--tag-fg); }
+.gw-files .gw-mark .gw-glyph { width: 14px; height: 14px; }
+.gw-files .gw-meta { flex: none; font-size: 13px; color: var(--text-2); text-align: right; }
+.gw-files .gw-row.selected .gw-meta { color: var(--tag-fg); }
+.gw-files .gw-date { width: 84px; }
+.gw-files .gw-label { overflow-wrap: anywhere; }
+@media (max-width: 700px) { .gw-files .gw-date { display: none; } }

@@ -152,6 +152,9 @@ esp_err_t handleApiGet(httpd_req_t *req) {
   if (!requireAuth(req)) return ESP_OK;
 
   String id;
+#if defined(GARNET_WEB_FILES)
+  if (path.startsWith("/api/fs")) return gwFilesHandle(req, path, false);
+#endif
   if (path == "/api/schema") return sendJson(req, static_cast<cJSON *>(gsSchemaJson()));
   if (tail(path, "/api/group/", id)) {
     const GsGroup *g = groupOr404(req, id);
@@ -285,6 +288,9 @@ esp_err_t handleApiPost(httpd_req_t *req) {
   if (!requireAuth(req)) return ESP_OK;
 #if defined(GARNET_WEB_OTA)
   if (path == "/api/ota") return handleOta(req);
+#endif
+#if defined(GARNET_WEB_FILES)
+  if (path.startsWith("/api/fs/")) return gwFilesHandle(req, path, true);
 #endif
 
   if (path == "/api/logout") {

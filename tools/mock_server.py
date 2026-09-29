@@ -20,8 +20,11 @@ import json
 import pathlib
 import re
 import secrets
+import shutil
+import tempfile
 import threading
 import time
+import urllib.parse
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 WEB = ROOT / "web"
@@ -38,6 +41,30 @@ STATE = {
     "portal": False,
 }
 LOCK = threading.Lock()
+
+# Two fake filesystems in temp dirs (deleted by the OS, never the repo).
+FS_ROOT = pathlib.Path(tempfile.mkdtemp(prefix="garnet_web_mock_"))
+FILESYSTEMS = {"sd": ("SD Card", 29.7 * 2**30), "flash": ("Flash", 1.4 * 2**20)}
+for fid in FILESYSTEMS:
+    (FS_ROOT / fid).mkdir()
+(FS_ROOT / "sd" / "DCIM").mkdir()
+(FS_ROOT / "sd" / "DCIM" / "snap_00012345.jpg").write_bytes(b"\xff\xd8" + b"\0" * 38000)
+(FS_ROOT / "sd" / "log.txt").write_text("boot ok\nwifi up\n")
+(FS_ROOT / "flash" / "config.json").write_text('{"hello": "world"}\n')
+
+
+def fs_path(fid, path):
+    """Mirror of gw_files.cpp cleanPath: absolute, no '..', no '//'."""
+    if fid not in FILESYSTEMS or not path.startswith("/") or "//" in path:
+        return None
+    parts = [p for p in path.split("/") if p]
+    if any(p in (".", "..") for p in parts):
+        return None
+    return FS_ROOT / fid / pathlib.Path(*parts) if parts else FS_ROOT / fid
+
+
+def fs_used(fid):
+    return sum(f.stat().st_size for f in (FS_ROOT / fid).rglob("*") if f.is_file())
 
 IPV4 = re.compile(r"^(25[0-5]|2[0-4]\d|1\d\d|\d\d?)(\.(25[0-5]|2[0-4]\d|1\d\d|\d\d?)){3}$")
 HOST = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9-]{0,30}[A-Za-z0-9])?$")
@@ -179,6 +206,32 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return self.send_json(s)
             if not self.authed():
                 return self.err(401, "login required")
+            if path == "/api/fs":
+                return self.send_json([{"id": k, "title": t, "total": tot, "used": fs_used(k)}
+                                       for k, (t, tot) in FILESYSTEMS.items()])
+            if path in ("/api/fs/list", "/api/fs/get"):
+                q = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+                target = fs_path(q.get("fs", [""])[0], q.get("path", [""])[0])
+                if target is None:
+                    return self.err(422, "Invalid path")
+                if path == "/api/fs/list":
+                    if not target.is_dir():
+                        return self.err(404, "No such folder")
+                    ents = [{"name": c.name, "dir": c.is_dir(),
+                             **({} if c.is_dir() else {"size": c.stat().st_size}),
+                             "time": int(c.stat().st_mtime)} for c in target.iterdir()]
+                    return self.send_json({"path": q["path"][0], "entries": ents})
+                if not target.is_file():
+                    return self.err(404, "No such file")
+                data = target.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", self.guess_type(str(target)))
+                disp = "attachment" if q.get("dl") == ["1"] else "inline"
+                self.send_header("Content-Disposition", f'{disp}; filename="{target.name}"')
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+                return
             if path == "/api/schema":
                 return self.send_json(schema())
             m = re.match(r"^/api/(group|live)/(\w+)$", path)
@@ -236,6 +289,19 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             with LOCK:
                 self.reboot()
             return self.send_json({"ok": True, "reboot": True})
+        if path == "/api/fs/put":
+            if not self.authed():
+                return self.err(401, "login required")
+            q = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            target = fs_path(q.get("fs", [""])[0], q.get("path", [""])[0])
+            n = int(self.headers.get("Content-Length") or 0)
+            data = self.rfile.read(n)
+            if target is None or target == FS_ROOT / q.get("fs", [""])[0]:
+                return self.err(422, "Invalid path")
+            if not target.parent.is_dir():
+                return self.err(500, "Cannot create file (folder missing or card full?)")
+            target.write_bytes(data)
+            return self.send_json({"ok": True})
         body = self.body()
         if body is None:
             return self.err(400, "invalid JSON")
@@ -249,6 +315,34 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     "Set-Cookie": f"gw_s={tok}; Path=/; HttpOnly; SameSite=Strict"})
             if not self.authed():
                 return self.err(401, "login required")
+            if path in ("/api/fs/mkdir", "/api/fs/delete", "/api/fs/rename"):
+                op = path.rsplit("/", 1)[1]
+                src = fs_path(body.get("fs", ""), body.get("from" if op == "rename" else "path", ""))
+                if src is None or src == FS_ROOT / body.get("fs", ""):
+                    return self.err(422, "Invalid path")
+                if op == "mkdir":
+                    if src.exists():
+                        return self.err(422, "Already exists")
+                    src.mkdir()
+                elif op == "delete":
+                    if not src.exists():
+                        return self.err(404, "Not found")
+                    if src.is_dir():
+                        if any(src.iterdir()):
+                            return self.err(422, "Folder is not empty")
+                        src.rmdir()
+                    else:
+                        src.unlink()
+                else:
+                    dst = fs_path(body.get("fs", ""), body.get("to", ""))
+                    if dst is None:
+                        return self.err(422, "Invalid new path")
+                    if dst.exists():
+                        return self.err(422, "Target already exists")
+                    if not dst.parent.is_dir():
+                        return self.err(500, "Could not rename (does the target folder exist?)")
+                    shutil.move(src, dst)
+                return self.send_json({"ok": True})
             if path == "/api/logout":
                 STATE["sessions"].clear()
                 return self.send_json({"ok": True})

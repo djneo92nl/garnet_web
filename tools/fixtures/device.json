@@ -466,6 +466,15 @@
       }
     },
     {
+      "id": "files",
+      "title": "Files",
+      "icon": "folder",
+      "section": "Device",
+      "widget": "files",
+      "fields": [],
+      "values": {}
+    },
+    {
       "id": "system",
       "title": "System",
       "icon": "system",

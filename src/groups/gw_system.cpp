@@ -114,6 +114,23 @@ void gwGroupsRegisterEth();
 void gwGroupsRegisterBt();
 void gwGroupsRegisterSd();
 
+#if defined(GARNET_WEB_FILES)
+namespace {
+// Fields-less group: the "files" widget is the whole page. Built by hand
+// because gsGroup() needs a non-empty array.
+GsGroup filesGroup() {
+  GsGroup g{};
+  g.id = "files";
+  g.title = "Files";
+  g.icon = "folder";
+  g.section = "Device";
+  g.widget = "files";
+  return g;
+}
+const GsGroup kFilesGroup = filesGroup();
+} // namespace
+#endif
+
 // Big-endian MAC order (byte 0 first), matching how the MAC is printed,
 // so the id reads the same as the MAC address minus the colons.
 String gwChipId() {
@@ -136,6 +153,9 @@ void gwGroupsRegister() {
 #endif
 #if defined(GARNET_WEB_SD)
   gwGroupsRegisterSd();
+#endif
+#if defined(GARNET_WEB_FILES)
+  gsRegister(kFilesGroup);
 #endif
   gsRegister(kGroup);
 }

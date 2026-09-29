@@ -9,11 +9,15 @@
 #include <ETH.h>
 #endif
 #if defined(GARNET_WEB_SD)
-#include <SD.h>
 #include <soc/soc_caps.h>
-#if SOC_SDMMC_HOST_SUPPORTED
-#include <SD_MMC.h>
-#endif
+// Forward declarations, not <SD.h> / <SD_MMC.h>: PlatformIO's dependency
+// scan ignores #if, so including them here would compile both libraries
+// into every project using garnet_web (and SD_MMC #warns on chips without
+// an SDIO host). The app includes the one it uses anyway.
+namespace fs {
+class SDFS;
+class SDMMCFS;
+} // namespace fs
 #endif
 
 // garnet_web - an iPadOS-settings-style browser UI for ESP32 devices that
@@ -28,6 +32,8 @@
 //                    primary link: when it is up WiFi STA is off, when it drops WiFi takes over
 //   GARNET_WEB_BT    Bluetooth: on/off + advertised name
 //   GARNET_WEB_SD    SD card info (the app mounts the card and passes it in)
+//   GARNET_WEB_FILES file manager (browse / up- / download / rename / delete)
+//                    for every filesystem registered with gwAddFs()
 //   GARNET_WEB_OTA   firmware update (.bin upload) under System - needs a
 //                    partition table with two OTA slots (e.g. default.csv)
 //   (always)         System: chip/memory/uptime info, hostname, web password,
@@ -85,6 +91,23 @@ void gwSetSd(fs::SDFS &sd);
 #if SOC_SDMMC_HOST_SUPPORTED
 void gwSetSd(fs::SDMMCFS &sd); // boards with the card on the SDMMC bus (e.g. S3 camera boards)
 #endif
+#endif
+
+#if defined(GARNET_WEB_FILES)
+#include <FS.h>
+void gwAddFsRaw(const char *id, const char *title, fs::FS &fs, void *obj,
+                uint64_t (*total)(void *), uint64_t (*used)(void *));
+
+// Show a mounted filesystem in the Files group. `id` is a short URL-safe
+// name ("sd", "flash"), `title` what the UI shows. Works with anything
+// that has totalBytes()/usedBytes(): SD, SD_MMC, LittleFS, FFat. Up to 4.
+//   gwAddFs("sd", "SD Card", SD_MMC);
+//   gwAddFs("flash", "Flash", LittleFS);
+template <typename T> void gwAddFs(const char *id, const char *title, T &fs) {
+  gwAddFsRaw(id, title, fs, &fs,
+             [](void *p) -> uint64_t { return static_cast<T *>(p)->totalBytes(); },
+             [](void *p) -> uint64_t { return static_cast<T *>(p)->usedBytes(); });
+}
 #endif
 
 #if defined(GARNET_WEB_UI_FS)

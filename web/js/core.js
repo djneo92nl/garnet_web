@@ -80,6 +80,8 @@ const GW_ICONS = {
   camera: svg`<path d="M3 7h4l2-3h6l2 3h4v13H3z"/><circle cx="12" cy="13" r="4"/>`,
   sensor: svg`<path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/>`,
   light: svg`<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 1-2.5A6 6 0 0 0 12 3z"/>`,
+  folder: svg`<path d="M3 6h7l2 2h9v11H3z"/>`,
+  file: svg`<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>`,
   sliders: svg`<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>`,
 };
 

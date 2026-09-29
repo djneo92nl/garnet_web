@@ -54,6 +54,12 @@ bool gwWifiAddNet(const String &ssid, const String &pass); // saves, caller rebo
 bool gwWifiForgetNet(const String &ssid);
 #endif
 
+// ---- Files -------------------------------------------------------------------------
+#if defined(GARNET_WEB_FILES)
+// Handles every /api/fs* request (already authenticated).
+esp_err_t gwFilesHandle(httpd_req_t *req, const String &path, bool post);
+#endif
+
 // ---- Built-in groups -------------------------------------------------------------
 // Each registers its GsGroup (in sidebar order) when its flag is set.
 void gwGroupsRegister();

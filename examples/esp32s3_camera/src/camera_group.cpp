@@ -221,7 +221,10 @@ bool cameraBegin() {
   // SD slot on the SDMMC bus, 1-bit mode (CLK 39, CMD 38, D0 40).
   SD_MMC.setPins(39, 38, 40);
   sdMounted = SD_MMC.begin("/sdcard", true);
-  if (sdMounted) gwSetSd(SD_MMC);
+  if (sdMounted) {
+    gwSetSd(SD_MMC);
+    gwAddFs("sd", "SD Card", SD_MMC); // snapshots land here - browse/download under Files
+  }
   else log_w("SD card not mounted");
 
   gsRegister(kCamGroup);

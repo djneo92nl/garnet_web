@@ -5,11 +5,14 @@
 // PSRAM, Chip ID, the label/notes you left), can put it on Wi-Fi, and can
 // install the real firmware under System > Firmware > Update.
 //
+// Files: the flash data partition is browsable under Files (LittleFS).
+//
 // Deliberately nothing else - no BT, no SD, no pins touched - so it runs
 // unchanged on any Wi-Fi ESP32 and can't fight whatever hardware the
 // board ends up soldered to.
 
 #include <Arduino.h>
+#include <LittleFS.h>
 #include <garnet_web.h>
 
 namespace {
@@ -37,6 +40,10 @@ void printStatus(GwNetMode mode) {
 void setup() {
   Serial.begin(115200);
   gsRegister(kBoard);
+  // The table's data partition (1.4 MB on default.csv) as LittleFS: room for
+  // a datasheet, a pinout photo or the project's config next to the board.
+  // Formatted on first boot.
+  if (LittleFS.begin(true)) gwAddFs("flash", "Flash", LittleFS);
 
   GwConfig cfg;
   cfg.name = ESP.getChipModel(); // "ESP32-C3" etc: AP name + hostname prefix

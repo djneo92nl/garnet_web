@@ -14,6 +14,7 @@ behind build flags:
 | `GARNET_WEB_SD` | SD card info. The app mounts the card (SPI `SD` or `SD_MMC`) and calls `gwSetSd()` |
 | (always) | System: hostname, chip/memory info, web password, backup/restore |
 | `GARNET_WEB_OTA` | Firmware update (.bin upload) under System, streamed into the inactive OTA slot and verified by `esp_ota_end` |
+| `GARNET_WEB_FILES` | Files group: browse, download, upload (streamed, via `.part`), mkdir, rename/move, delete (empty folders only) on every `gwAddFs()` filesystem |
 | `GARNET_WEB_UI_FS` | Serve the UI from a filesystem (`gwSetUiFs`) instead of flash |
 
 It targets Arduino-ESP32 **3.x** only, through the pioarduino platform
@@ -59,6 +60,16 @@ It targets Arduino-ESP32 **3.x** only, through the pioarduino platform
   the session cookie is sent to every port. See `examples/esp32s3_camera/src/camera_group.cpp`.
 - The WiFi scan uses the retry-on-`WIFI_SCAN_FAILED` workaround from
   garnet_ui's WiFi selector (`ESP_ERR_WIFI_STATE` race with `WiFi.begin`).
+- **Never add `lib_ignore` to a pioarduino project.** pioarduino
+  interprets it as "remove these IDF components" and **rewrites the shared
+  framework build script**
+  (`~/.platformio/packages/framework-arduinoespressif32-libs/<chip>/pioarduino-build.py`).
+  That breaks every project on the machine, e.g. with "esp_eth_driver.h not
+  found". The original is kept beside it as `pioarduino-build.py.<chip>`;
+  copy it back to repair. `lib_ldf_mode = chain+` breaks the Network
+  library lookup instead. The fix for unwanted libraries is to not
+  `#include` them from public headers (see the SD forward declarations
+  in `garnet_web.h`).
 - Read the MAC from efuse (`esp_read_mac`), not `WiFi.macAddress()`. The
   latter returns zeros before the driver starts, which was hit on hardware
   as an AP named "-0000".

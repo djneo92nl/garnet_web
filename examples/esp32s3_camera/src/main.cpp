@@ -6,6 +6,7 @@
 // password below, pick your network under Wi-Fi.
 
 #include <Arduino.h>
+#include <LittleFS.h>
 #include <garnet_web.h>
 
 #include "camera_group.h"
@@ -45,6 +46,7 @@ void setup() {
   Serial.begin(115200);
   bool haveCamera = cameraBegin(); // registers "Camera" (first in the sidebar section)
   gsRegister(kDemoGroup);
+  if (LittleFS.begin(true)) gwAddFs("flash", "Flash", LittleFS); // data partition of default_16MB.csv
 
   GwConfig cfg;
   cfg.name = "S3 Demo";

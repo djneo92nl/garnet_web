@@ -228,6 +228,8 @@ class GwGroup extends GwElement {
     const widget =
       g.widget === "wifi"
         ? html`<gw-wifi></gw-wifi>`
+        : g.widget === "files"
+        ? html`<gw-files></gw-files>`
         : g.widget && g.widget.startsWith("img:")
         ? html`<gw-img .spec=${g.widget.slice(4)}></gw-img>`
         : nothing;

@@ -122,6 +122,269 @@ class GwWifi extends GwElement {
 }
 customElements.define("gw-wifi", GwWifi);
 
+// ---- <gw-files> ---------------------------------------------------------------
+// File manager for GARNET_WEB_FILES. Palm-style interaction: tap a row to
+// select it (tap a folder again to open it), then act on the selection with
+// the buttons under the list.
+
+function gwJoin(dir, name) {
+  return (dir === "/" ? "" : dir) + "/" + name;
+}
+
+function gwFmtSize(n) {
+  if (n === undefined) return "";
+  if (n >= 1073741824) return (n / 1073741824).toFixed(2) + " GB";
+  if (n >= 1048576) return (n / 1048576).toFixed(1) + " MB";
+  if (n >= 1024) return (n / 1024).toFixed(1) + " KB";
+  return n + " B";
+}
+
+class GwFiles extends GwElement {
+  static properties = {
+    stores: { state: true },
+    fs: { state: true },
+    path: { state: true },
+    entries: { state: true },
+    sel: { state: true },
+    note: { state: true },
+    busy: { state: true },
+  };
+
+  constructor() {
+    super();
+    this.path = "/";
+    this.entries = null;
+    this.sel = null;
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.loadStores();
+  }
+
+  async loadStores() {
+    try {
+      this.stores = await gwApi.get("/api/fs");
+    } catch (e) {
+      this.note = { error: true, text: e.message };
+      return;
+    }
+    if (this.stores.length && !this.stores.find((s) => s.id === this.fs)) this.open(this.stores[0].id, "/");
+  }
+
+  q(extra) {
+    const p = new URLSearchParams({ fs: this.fs, ...extra });
+    return p.toString();
+  }
+
+  async open(fs, path) {
+    this.fs = fs;
+    this.path = path;
+    this.sel = null;
+    this.entries = null;
+    try {
+      const res = await gwApi.get(`/api/fs/list?${this.q({ path })}`);
+      res.entries.sort((a, b) => (b.dir - a.dir) || a.name.localeCompare(b.name));
+      this.entries = res.entries;
+    } catch (e) {
+      this.entries = [];
+      this.note = { error: true, text: e.message };
+    }
+  }
+
+  refresh() {
+    this.open(this.fs, this.path);
+    this.loadStores();
+  }
+
+  tap(ent) {
+    if (ent.dir && this.sel === ent.name) {
+      this.note = null;
+      this.open(this.fs, gwJoin(this.path, ent.name));
+    } else {
+      this.sel = ent.name;
+    }
+  }
+
+  up() {
+    const i = this.path.lastIndexOf("/");
+    this.open(this.fs, i <= 0 ? "/" : this.path.slice(0, i));
+  }
+
+  selected() {
+    return this.entries && this.entries.find((e) => e.name === this.sel);
+  }
+
+  download() {
+    const ent = this.selected();
+    if (!ent || ent.dir) return;
+    const a = document.createElement("a");
+    a.href = `/api/fs/get?${this.q({ path: gwJoin(this.path, ent.name), dl: "1" })}`;
+    a.download = ent.name;
+    a.click();
+  }
+
+  view() {
+    const ent = this.selected();
+    if (ent && !ent.dir) window.open(`/api/fs/get?${this.q({ path: gwJoin(this.path, ent.name) })}`, "_blank");
+  }
+
+  async op(name, body, okText) {
+    try {
+      await gwApi.post(`/api/fs/${name}`, { fs: this.fs, ...body });
+      this.note = okText ? { text: okText } : null;
+      this.refresh();
+      return null;
+    } catch (e) {
+      return e.message;
+    }
+  }
+
+  async newFolder() {
+    await gwDialog({
+      title: "New Folder",
+      ok: "Create",
+      inputs: [{ name: "name", label: "Name" }],
+      submit: (v) => (v.name ? this.op("mkdir", { path: gwJoin(this.path, v.name) }) : "Enter a name"),
+    });
+  }
+
+  async rename() {
+    const ent = this.selected();
+    if (!ent) return;
+    const from = gwJoin(this.path, ent.name);
+    await gwDialog({
+      title: "Rename / Move",
+      text: "A full path moves it to another folder.",
+      ok: "Rename",
+      inputs: [{ name: "to", label: "New name or path", value: ent.name }],
+      submit: (v) => {
+        if (!v.to) return "Enter a name";
+        const to = v.to.startsWith("/") ? v.to : gwJoin(this.path, v.to);
+        return to === from ? null : this.op("rename", { from, to });
+      },
+    });
+  }
+
+  async remove() {
+    const ent = this.selected();
+    if (!ent) return;
+    await gwDialog({
+      title: ent.dir ? "Delete Folder" : "Delete File",
+      text: `Delete \u201c${ent.name}\u201d?${ent.dir ? " The folder must be empty." : ""}`,
+      ok: "Delete",
+      danger: true,
+      submit: () => this.op("delete", { path: gwJoin(this.path, ent.name) }),
+    });
+  }
+
+  pickUpload() {
+    this.querySelector("#gw-upload").click();
+  }
+
+  // Sequential XHR uploads (progress per file); the device streams each
+  // body straight to "<name>.part" and renames when complete.
+  async upload(e) {
+    const files = [...e.target.files];
+    e.target.value = "";
+    if (!files.length) return;
+    this.busy = true;
+    let done = 0;
+    for (const file of files) {
+      const err = await new Promise((resolve) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", `/api/fs/put?${this.q({ path: gwJoin(this.path, file.name) })}`);
+        xhr.setRequestHeader("X-GW", "1");
+        xhr.setRequestHeader("Content-Type", "application/octet-stream");
+        xhr.upload.onprogress = (ev) => {
+          if (ev.lengthComputable) {
+            const pct = Math.round((ev.loaded * 100) / ev.total);
+            this.note = { text: `Uploading ${done + 1}/${files.length} ${file.name} ${pct}%` };
+          }
+        };
+        xhr.onload = () => {
+          let res = null;
+          try {
+            res = JSON.parse(xhr.responseText);
+          } catch (_) {}
+          resolve(xhr.status === 200 ? null : (res && res.error) || `Failed (${xhr.status})`);
+        };
+        xhr.onerror = () => resolve("Upload interrupted");
+        xhr.send(file);
+      });
+      if (err) {
+        this.note = { error: true, text: `${file.name}: ${err}` };
+        this.busy = false;
+        this.refresh();
+        return;
+      }
+      done++;
+    }
+    this.busy = false;
+    this.note = { text: `Uploaded ${done} file${done === 1 ? "" : "s"}` };
+    this.refresh();
+  }
+
+  render() {
+    if (!this.stores) return html`${this.note ? html`<p class="gw-note error">${this.note.text}</p>` : html`<div class="gw-empty">Loading\u2026</div>`}`;
+    if (!this.stores.length) return html`<p class="gw-note">No storage mounted.</p>`;
+    const store = this.stores.find((s) => s.id === this.fs) || this.stores[0];
+    const ent = this.selected();
+    const crumbs = this.path === "/" ? [] : this.path.slice(1).split("/");
+    return html`
+      <div class="gw-row">
+        <span class="gw-label"><span class="gw-lt">Storage</span></span>
+        ${this.stores.length > 1
+          ? html`<select aria-label="Storage" @change=${(e) => this.open(e.target.value, "/")}>
+              ${this.stores.map((s) => html`<option value=${s.id} ?selected=${s.id === store.id}>${s.title}</option>`)}
+            </select>`
+          : html`<span class="gw-value">${store.title}</span>`}
+      </div>
+      <div class="gw-row">
+        <span class="gw-label"><span class="gw-lt">Used</span></span>
+        <span class="gw-value">${gwFmtSize(store.used)} of ${gwFmtSize(store.total)}</span>
+      </div>
+      <div class="gw-card-title">
+        <button class="gw-link gw-busy" @click=${() => this.open(this.fs, "/")}>${store.title}</button>
+        ${crumbs.map(
+          (c, i) => html`\u203a <button class="gw-link gw-busy"
+            @click=${() => this.open(this.fs, "/" + crumbs.slice(0, i + 1).join("/"))}>${c}</button>`
+        )}
+      </div>
+      <div class="gw-listbox gw-files">
+        ${this.path !== "/"
+          ? html`<div class="gw-row list clickable" @click=${this.up}>
+              <span class="gw-mark">${gwIcon("folder")}</span><span class="gw-label">..</span>
+            </div>`
+          : nothing}
+        ${this.entries === null
+          ? html`<div class="gw-row list"><span class="gw-label">Loading\u2026</span></div>`
+          : this.entries.length === 0
+          ? html`<div class="gw-row list"><span class="gw-label">Empty</span></div>`
+          : this.entries.map(
+              (en) => html`<div class="gw-row list clickable ${this.sel === en.name ? "selected" : ""}"
+                @click=${() => this.tap(en)} @dblclick=${() => en.dir || this.view()}>
+                <span class="gw-mark">${gwIcon(en.dir ? "folder" : "file")}</span>
+                <span class="gw-label">${en.name}</span>
+                <span class="gw-meta">${en.dir ? "" : gwFmtSize(en.size)}</span>
+                <span class="gw-meta gw-date">${en.time ? new Date(en.time * 1000).toLocaleDateString() : ""}</span>
+              </div>`
+            )}
+      </div>
+      ${this.note ? html`<p class="gw-note ${this.note.error ? "error" : ""}">${this.note.text}</p>` : nothing}
+      <div class="gw-buttons">
+        <button class="gw-btn" ?disabled=${this.busy} @click=${this.pickUpload}>Upload\u2026</button>
+        <button class="gw-btn" ?disabled=${this.busy} @click=${this.newFolder}>New Folder\u2026</button>
+        <button class="gw-btn" ?disabled=${!ent || ent.dir} @click=${this.download}>Download</button>
+        <button class="gw-btn" ?disabled=${!ent} @click=${this.rename}>Rename\u2026</button>
+        <button class="gw-btn danger" ?disabled=${!ent} @click=${this.remove}>Delete\u2026</button>
+      </div>
+      <input id="gw-upload" type="file" multiple hidden @change=${this.upload} />
+    `;
+  }
+}
+customElements.define("gw-files", GwFiles);
+
 // ---- <gw-img> ----------------------------------------------------------------
 // Live image (MJPEG stream or a plain picture) for GsGroup.widget "img:<src>".
 // A src starting with ':' is a port on the device's own host. While the

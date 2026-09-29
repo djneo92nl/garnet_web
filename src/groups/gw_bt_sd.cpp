@@ -63,6 +63,12 @@ void gwBtBegin() {}
 // in the middle of an app's own SD transfer.
 
 #if defined(GARNET_WEB_SD)
+// Included here, not in garnet_web.h (see the forward declarations there).
+#include <SD.h>
+#if SOC_SDMMC_HOST_SUPPORTED
+#include <SD_MMC.h>
+#endif
+
 namespace {
 constexpr uint32_t kSdRefreshMs = 30000;
 
