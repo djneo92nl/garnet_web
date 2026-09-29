@@ -35,6 +35,7 @@ class GwApp extends GwElement {
   async boot() {
     try {
       this.session = await gwApi.get("/api/session");
+      window.gwSession = this.session; // capability flags (e.g. ota) for widgets
     } catch (e) {
       this.fatal = "Can't reach the device.";
       return;

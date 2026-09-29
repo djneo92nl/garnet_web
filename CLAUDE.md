@@ -13,6 +13,7 @@ behind build flags:
 | `GARNET_WEB_BT` | Bluetooth on/off + name. Compiled out on chips without BT (`SOC_BT_SUPPORTED`) |
 | `GARNET_WEB_SD` | SD card info. The app mounts the card (SPI `SD` or `SD_MMC`) and calls `gwSetSd()` |
 | (always) | System: hostname, chip/memory info, web password, backup/restore |
+| `GARNET_WEB_OTA` | Firmware update (.bin upload) under System, streamed into the inactive OTA slot and verified by `esp_ota_end` |
 | `GARNET_WEB_UI_FS` | Serve the UI from a filesystem (`gwSetUiFs`) instead of flash |
 
 It targets Arduino-ESP32 **3.x** only, through the pioarduino platform
@@ -70,8 +71,9 @@ It targets Arduino-ESP32 **3.x** only, through the pioarduino platform
   (the password is in `tools/fixtures/device.json`). The mock serves `web/`
   unbundled, so edit and reload. It re-implements the API, so keep it in
   sync with `gw_server.cpp`.
-- Firmware: `pio run` in `examples/esp32s3_camera`, `examples/wt32_eth01` and
-  `examples/cyd`. The examples symlink this repo and `../garnet_settings`.
+- Firmware: `pio run` in `examples/esp32s3_camera`, `examples/wt32_eth01`,
+  `examples/cyd` and `examples/storage`. `storage` builds 6 chip envs, so
+  it's the portability check. The examples symlink this repo and `../garnet_settings`.
 - After changing `web/`, commit the regenerated `src/gw_ui_gz.h`
   (`python3 tools/build_ui.py`). `--check` verifies it is current.
   PlatformIO's Python may link a different zlib than your shell's, so a

@@ -171,7 +171,45 @@ customElements.define("gw-img", GwImg);
 // ---- <gw-system-extra> -------------------------------------------------------
 
 class GwSystemExtra extends GwElement {
-  static properties = { note: { state: true } };
+  static properties = { note: { state: true }, uploading: { state: true }, progress: { state: true } };
+
+  async ota(e) {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    const ok = await gwDialog({
+      title: "Update Firmware",
+      text: `Install \u201c${file.name}\u201d (${Math.round(file.size / 1024)} KB) and restart? Settings are kept.`,
+      ok: "Install",
+    });
+    if (!ok) return;
+    this.note = null;
+    this.uploading = true;
+    this.progress = 0;
+    // XHR, not fetch: fetch has no upload progress, and a 1 MB upload over
+    // a weak AP link takes long enough that a progress readout matters.
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/ota");
+    xhr.setRequestHeader("X-GW", "1");
+    xhr.setRequestHeader("Content-Type", "application/octet-stream");
+    xhr.upload.onprogress = (ev) => {
+      if (ev.lengthComputable) this.progress = Math.round((ev.loaded * 100) / ev.total);
+    };
+    xhr.onload = () => {
+      this.uploading = false;
+      let res = null;
+      try {
+        res = JSON.parse(xhr.responseText);
+      } catch (_) {}
+      if (xhr.status === 200 && res && res.reboot) gwRebooting();
+      else this.note = { error: true, text: (res && res.error) || `Update failed (${xhr.status})` };
+    };
+    xhr.onerror = () => {
+      this.uploading = false;
+      this.note = { error: true, text: "Upload interrupted" };
+    };
+    xhr.send(file);
+  }
 
   async changePassword() {
     const ok = await gwDialog({
@@ -245,6 +283,15 @@ class GwSystemExtra extends GwElement {
         <button class="gw-btn" @click=${this.pickRestore}>Restore\u2026</button>
       </div>
       <input type="file" accept="application/json,.json" hidden @change=${this.restore} />
+      ${window.gwSession && window.gwSession.ota
+        ? html`<div class="gw-card-title">Firmware</div>
+            <div class="gw-buttons">
+              <button class="gw-btn" ?disabled=${this.uploading} @click=${() => this.querySelector("#gw-ota").click()}>
+                ${this.uploading ? `Uploading ${this.progress}%` : "Update\u2026"}
+              </button>
+            </div>
+            <input id="gw-ota" type="file" accept=".bin,application/octet-stream" hidden @change=${this.ota} />`
+        : nothing}
     `;
   }
 }

@@ -28,6 +28,8 @@
 //                    primary link: when it is up WiFi STA is off, when it drops WiFi takes over
 //   GARNET_WEB_BT    Bluetooth: on/off + advertised name
 //   GARNET_WEB_SD    SD card info (the app mounts the card and passes it in)
+//   GARNET_WEB_OTA   firmware update (.bin upload) under System - needs a
+//                    partition table with two OTA slots (e.g. default.csv)
 //   (always)         System: chip/memory/uptime info, hostname, web password,
 //                    settings backup/restore
 // App groups are plain gsRegister() calls and show up after the built-ins.

@@ -175,7 +175,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return super().do_GET()
         with LOCK:
             if path == "/api/session":
-                s = dict(FIXTURE["session"], auth=self.authed(), portal=STATE["portal"])
+                s = dict(FIXTURE["session"], auth=self.authed(), portal=STATE["portal"], ota=True)
                 return self.send_json(s)
             if not self.authed():
                 return self.err(401, "login required")
@@ -224,6 +224,18 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if self.headers.get("X-GW") != "1":
             return self.err(403, "missing X-GW header")
         path = self.path.split("?")[0]
+        if path == "/api/ota":
+            # Raw .bin body, not JSON. Accept anything starting with the ESP
+            # image magic byte (0xE9), like esp_ota_end's first check.
+            if not self.authed():
+                return self.err(401, "login required")
+            n = int(self.headers.get("Content-Length") or 0)
+            data = self.rfile.read(n)
+            if data[:1] != b"\xe9":
+                return self.err(422, "Not a valid firmware for this chip")
+            with LOCK:
+                self.reboot()
+            return self.send_json({"ok": True, "reboot": True})
         body = self.body()
         if body is None:
             return self.err(400, "invalid JSON")

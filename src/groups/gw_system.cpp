@@ -2,6 +2,9 @@
 
 #include <esp_arduino_version.h>
 #include <esp_system.h>
+#if defined(GARNET_WEB_OTA)
+#include <esp_ota_ops.h>
+#endif
 
 // System group - always compiled in. Everything a "what is this device
 // and how is it doing" page needs, plus the hostname (shared by WiFi and
@@ -60,6 +63,16 @@ String macStr() {
 
 String chipIdStr() { return gwChipId(); }
 
+#if defined(GARNET_WEB_OTA)
+// Which of the two OTA slots is running, and how big a firmware may be.
+String slotStr() {
+  const esp_partition_t *run = esp_ota_get_running_partition();
+  const esp_partition_t *next = esp_ota_get_next_update_partition(nullptr);
+  if (run == nullptr) return "-";
+  return String(run->label) + ", max " + gwFmtBytes(next ? next->size : run->size);
+}
+#endif
+
 String hostnameStr() { return gwHostname() + ".local"; }
 
 bool hostnameOrEmpty(const String &v) { return v.length() == 0 || gsValidHostname(v); }
@@ -82,6 +95,9 @@ const GsField kFields[] = {
     gsInfo("reset", "Last reset", resetStr),
     gsInfo("mac", "MAC address", macStr),
     gsInfo("sdk", "Software", sdkStr),
+#if defined(GARNET_WEB_OTA)
+    gsInfo("slot", "Firmware slot", slotStr),
+#endif
 };
 
 const GsGroup kGroup =

@@ -2,6 +2,10 @@
 
 #include <cJSON.h>
 
+#if defined(GARNET_WEB_OTA)
+#include <esp_ota_ops.h>
+#endif
+
 #if defined(GARNET_WEB_UI_FS)
 #include <FS.h>
 #else
@@ -136,6 +140,9 @@ esp_err_t handleSession(httpd_req_t *req) {
   if (gwCfg.accent) cJSON_AddStringToObject(o, "accent", gwCfg.accent);
   if (gwCfg.logoSvg) cJSON_AddStringToObject(o, "logo", gwCfg.logoSvg);
   cJSON_AddBoolToObject(o, "portal", gwPortalActive());
+#if defined(GARNET_WEB_OTA)
+  cJSON_AddBoolToObject(o, "ota", true);
+#endif
   return sendJson(req, o);
 }
 
@@ -206,6 +213,64 @@ esp_err_t handleGroupSave(httpd_req_t *req, const GsGroup &g) {
   return sendOk(req, reboot);
 }
 
+#if defined(GARNET_WEB_OTA)
+// Firmware update: the raw .bin as the request body, streamed straight
+// into the inactive OTA slot - never buffered, so it works on chips with
+// no PSRAM. esp_ota_end() verifies the image (magic, chip id, checksum /
+// SHA) before the slot is made bootable; a wrong or truncated file leaves
+// the running firmware untouched.
+esp_err_t handleOta(httpd_req_t *req) {
+  const esp_partition_t *slot = esp_ota_get_next_update_partition(nullptr);
+  if (slot == nullptr) {
+    return sendError(req, "500 Internal Server Error", "No OTA partition (check partition table)");
+  }
+  if (req->content_len == 0 || req->content_len > slot->size) {
+    return sendError(req, "413 Payload Too Large",
+                     "Firmware must be 1 B - " + gwFmtBytes(slot->size));
+  }
+  esp_ota_handle_t ota;
+  // Sequential writes: erase as we go instead of erasing the whole slot
+  // up front, which would stall this request for seconds before byte one.
+  if (esp_ota_begin(slot, OTA_WITH_SEQUENTIAL_WRITES, &ota) != ESP_OK) {
+    return sendError(req, "500 Internal Server Error", "Could not start update");
+  }
+  constexpr size_t kChunk = 4096;
+  char *buf = static_cast<char *>(malloc(kChunk));
+  if (buf == nullptr) {
+    esp_ota_abort(ota);
+    return sendError(req, "500 Internal Server Error", "out of memory");
+  }
+  size_t got = 0;
+  bool ok = true;
+  while (got < req->content_len) {
+    int r = httpd_req_recv(req, buf, min(kChunk, req->content_len - got));
+    if (r == HTTPD_SOCK_ERR_TIMEOUT) continue;
+    if (r <= 0 || esp_ota_write(ota, buf, r) != ESP_OK) {
+      ok = false;
+      break;
+    }
+    got += r;
+  }
+  free(buf);
+  if (!ok) {
+    esp_ota_abort(ota);
+    return sendError(req, "500 Internal Server Error", "Upload interrupted");
+  }
+  esp_err_t err = esp_ota_end(ota);
+  if (err != ESP_OK) {
+    return sendError(req, "422 Unprocessable Entity",
+                     err == ESP_ERR_OTA_VALIDATE_FAILED ? "Not a valid firmware for this chip"
+                                                        : "Update failed");
+  }
+  if (esp_ota_set_boot_partition(slot) != ESP_OK) {
+    return sendError(req, "500 Internal Server Error", "Could not switch to new firmware");
+  }
+  log_i("garnet_web: OTA %u bytes to %s, rebooting", (unsigned)got, slot->label);
+  gwDeferReboot(1500);
+  return sendOk(req, true);
+}
+#endif
+
 esp_err_t handleApiPost(httpd_req_t *req) {
   // Custom header = not a plain cross-site form/fetch (those can't set
   // one without a CORS preflight, which we never answer).
@@ -218,6 +283,9 @@ esp_err_t handleApiPost(httpd_req_t *req) {
   String path = pathOf(req);
   if (path == "/api/login") return handleLogin(req);
   if (!requireAuth(req)) return ESP_OK;
+#if defined(GARNET_WEB_OTA)
+  if (path == "/api/ota") return handleOta(req);
+#endif
 
   if (path == "/api/logout") {
     gwAuthLogout(req);
