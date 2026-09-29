@@ -122,6 +122,52 @@ class GwWifi extends GwElement {
 }
 customElements.define("gw-wifi", GwWifi);
 
+// ---- <gw-img> ----------------------------------------------------------------
+// Live image (MJPEG stream or a plain picture) for GsGroup.widget "img:<src>".
+// A src starting with ':' is a port on the device's own host. While the
+// tab is hidden the <img> is removed, which closes a stream connection -
+// a camera stream would otherwise keep the device busy for nobody.
+
+class GwImg extends GwElement {
+  static properties = { spec: {}, visible: { state: true }, failed: { state: true } };
+
+  constructor() {
+    super();
+    this.visible = document.visibilityState === "visible";
+    this.onVis = () => {
+      this.visible = document.visibilityState === "visible";
+      if (this.visible) this.failed = false;
+    };
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    document.addEventListener("visibilitychange", this.onVis);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    document.removeEventListener("visibilitychange", this.onVis);
+  }
+
+  get src() {
+    const s = this.spec || "";
+    return s.startsWith(":") ? `${location.protocol}//${location.hostname}${s}` : s;
+  }
+
+  render() {
+    return html`<div class="gw-img">
+      ${this.visible && !this.failed
+        ? html`<img src=${this.src} alt="" @error=${() => (this.failed = true)} />`
+        : html`<div class="gw-img-off">${this.failed ? "No image" : "Paused"}</div>`}
+      ${this.failed
+        ? html`<button class="gw-btn" @click=${() => (this.failed = false)}>Retry</button>`
+        : nothing}
+    </div>`;
+  }
+}
+customElements.define("gw-img", GwImg);
+
 // ---- <gw-system-extra> -------------------------------------------------------
 
 class GwSystemExtra extends GwElement {

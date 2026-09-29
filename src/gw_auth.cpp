@@ -122,6 +122,8 @@ bool gwAuthCheck(httpd_req_t *req) {
   return i >= 0;
 }
 
+bool gwAuthorized(httpd_req_t *req) { return gwAuthCheck(req); }
+
 bool gwAuthLogin(const String &password, String &tokenOut, uint32_t &retryAfterS) {
   retryAfterS = 0;
   uint32_t now = millis();

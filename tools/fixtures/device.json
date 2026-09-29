@@ -1,107 +1,598 @@
 {
-  "session": { "name": "Relay Box", "host": "relay-box-a1b2" },
+  "session": {
+    "name": "Relay Box",
+    "host": "relay-box-a1b2"
+  },
   "password": "changeme",
   "groups": [
     {
-      "id": "wifi", "title": "Wi-Fi", "icon": "wifi", "section": "Connections", "widget": "wifi", "reboot": true,
+      "id": "wifi",
+      "title": "Wi-Fi",
+      "icon": "wifi",
+      "section": "Connections",
+      "widget": "wifi",
+      "reboot": true,
       "fields": [
-        { "key": "status", "type": "info", "label": "Status" },
-        { "key": "ssid", "type": "info", "label": "Network" },
-        { "key": "ipnow", "type": "info", "label": "IP address" },
-        { "key": "rssi", "type": "info", "label": "Signal" },
-        { "key": "dhcp", "type": "toggle", "label": "Automatic IP (DHCP)", "def": true },
-        { "key": "ip", "type": "text", "label": "IP address", "def": "", "maxLen": 15, "placeholder": "192.168.1.50", "showIf": "!dhcp", "ipv4": true },
-        { "key": "mask", "type": "text", "label": "Subnet mask", "def": "255.255.255.0", "maxLen": 15, "placeholder": "255.255.255.0", "showIf": "!dhcp", "ipv4": true },
-        { "key": "gw", "type": "text", "label": "Router", "def": "", "maxLen": 15, "placeholder": "192.168.1.1", "showIf": "!dhcp", "ipv4": true },
-        { "key": "dns", "type": "text", "label": "DNS", "def": "", "maxLen": 15, "placeholder": "same as router", "showIf": "!dhcp", "ipv4": true }
+        {
+          "key": "status",
+          "type": "info",
+          "label": "Status"
+        },
+        {
+          "key": "ssid",
+          "type": "info",
+          "label": "Network"
+        },
+        {
+          "key": "ipnow",
+          "type": "info",
+          "label": "IP address"
+        },
+        {
+          "key": "rssi",
+          "type": "info",
+          "label": "Signal"
+        },
+        {
+          "key": "dhcp",
+          "type": "toggle",
+          "label": "Automatic IP (DHCP)",
+          "def": true
+        },
+        {
+          "key": "ip",
+          "type": "text",
+          "label": "IP address",
+          "def": "",
+          "maxLen": 15,
+          "placeholder": "192.168.1.50",
+          "showIf": "!dhcp",
+          "ipv4": true
+        },
+        {
+          "key": "mask",
+          "type": "text",
+          "label": "Subnet mask",
+          "def": "255.255.255.0",
+          "maxLen": 15,
+          "placeholder": "255.255.255.0",
+          "showIf": "!dhcp",
+          "ipv4": true
+        },
+        {
+          "key": "gw",
+          "type": "text",
+          "label": "Router",
+          "def": "",
+          "maxLen": 15,
+          "placeholder": "192.168.1.1",
+          "showIf": "!dhcp",
+          "ipv4": true
+        },
+        {
+          "key": "dns",
+          "type": "text",
+          "label": "DNS",
+          "def": "",
+          "maxLen": 15,
+          "placeholder": "same as router",
+          "showIf": "!dhcp",
+          "ipv4": true
+        }
       ],
-      "values": { "status": "Connected", "ssid": "HomeNet", "ipnow": "192.168.1.42", "rssi": "-58 dBm (good)", "dhcp": true, "ip": "", "mask": "255.255.255.0", "gw": "", "dns": "" }
+      "values": {
+        "status": "Connected",
+        "ssid": "HomeNet",
+        "ipnow": "192.168.1.42",
+        "rssi": "-58 dBm (good)",
+        "dhcp": true,
+        "ip": "",
+        "mask": "255.255.255.0",
+        "gw": "",
+        "dns": ""
+      }
     },
     {
-      "id": "eth", "title": "Ethernet", "icon": "ethernet", "section": "Connections", "reboot": true,
+      "id": "eth",
+      "title": "Ethernet",
+      "icon": "ethernet",
+      "section": "Connections",
+      "reboot": true,
       "fields": [
-        { "key": "link", "type": "info", "label": "Link" },
-        { "key": "ipnow", "type": "info", "label": "IP address" },
-        { "key": "mac", "type": "info", "label": "MAC address" },
-        { "key": "dhcp", "type": "toggle", "label": "Automatic IP (DHCP)", "def": true },
-        { "key": "ip", "type": "text", "label": "IP address", "def": "", "maxLen": 15, "placeholder": "192.168.1.50", "showIf": "!dhcp", "ipv4": true },
-        { "key": "mask", "type": "text", "label": "Subnet mask", "def": "255.255.255.0", "maxLen": 15, "showIf": "!dhcp", "ipv4": true },
-        { "key": "gw", "type": "text", "label": "Router", "def": "", "maxLen": 15, "showIf": "!dhcp", "ipv4": true },
-        { "key": "dns", "type": "text", "label": "DNS", "def": "", "maxLen": 15, "placeholder": "same as router", "showIf": "!dhcp", "ipv4": true }
+        {
+          "key": "link",
+          "type": "info",
+          "label": "Link"
+        },
+        {
+          "key": "ipnow",
+          "type": "info",
+          "label": "IP address"
+        },
+        {
+          "key": "mac",
+          "type": "info",
+          "label": "MAC address"
+        },
+        {
+          "key": "dhcp",
+          "type": "toggle",
+          "label": "Automatic IP (DHCP)",
+          "def": true
+        },
+        {
+          "key": "ip",
+          "type": "text",
+          "label": "IP address",
+          "def": "",
+          "maxLen": 15,
+          "placeholder": "192.168.1.50",
+          "showIf": "!dhcp",
+          "ipv4": true
+        },
+        {
+          "key": "mask",
+          "type": "text",
+          "label": "Subnet mask",
+          "def": "255.255.255.0",
+          "maxLen": 15,
+          "showIf": "!dhcp",
+          "ipv4": true
+        },
+        {
+          "key": "gw",
+          "type": "text",
+          "label": "Router",
+          "def": "",
+          "maxLen": 15,
+          "showIf": "!dhcp",
+          "ipv4": true
+        },
+        {
+          "key": "dns",
+          "type": "text",
+          "label": "DNS",
+          "def": "",
+          "maxLen": 15,
+          "placeholder": "same as router",
+          "showIf": "!dhcp",
+          "ipv4": true
+        }
       ],
-      "values": { "link": "No cable", "ipnow": "-", "mac": "A8:03:2A:A1:B2:C4", "dhcp": true, "ip": "", "mask": "255.255.255.0", "gw": "", "dns": "" }
+      "values": {
+        "link": "No cable",
+        "ipnow": "-",
+        "mac": "A8:03:2A:A1:B2:C4",
+        "dhcp": true,
+        "ip": "",
+        "mask": "255.255.255.0",
+        "gw": "",
+        "dns": ""
+      }
     },
     {
-      "id": "bt", "title": "Bluetooth", "icon": "bluetooth", "section": "Connections", "reboot": true,
+      "id": "bt",
+      "title": "Bluetooth",
+      "icon": "bluetooth",
+      "section": "Connections",
+      "reboot": true,
       "fields": [
-        { "key": "status", "type": "info", "label": "Status" },
-        { "key": "enabled", "type": "toggle", "label": "Bluetooth", "def": false },
-        { "key": "name", "type": "text", "label": "Device name", "def": "", "maxLen": 29, "placeholder": "same as hostname", "showIf": "enabled" }
+        {
+          "key": "status",
+          "type": "info",
+          "label": "Status"
+        },
+        {
+          "key": "enabled",
+          "type": "toggle",
+          "label": "Bluetooth",
+          "def": false
+        },
+        {
+          "key": "name",
+          "type": "text",
+          "label": "Device name",
+          "def": "",
+          "maxLen": 29,
+          "placeholder": "same as hostname",
+          "showIf": "enabled"
+        }
       ],
-      "values": { "status": "Off", "enabled": false, "name": "" }
+      "values": {
+        "status": "Off",
+        "enabled": false,
+        "name": ""
+      }
     },
     {
-      "id": "relay", "title": "Relay", "icon": "power", "section": "Settings",
+      "id": "relay",
+      "title": "Relay",
+      "icon": "power",
+      "section": "Settings",
       "fields": [
-        { "key": "on", "type": "toggle", "label": "Relay on", "def": false },
-        { "key": "pulse", "type": "number", "label": "Pulse length (ms)", "def": 500, "min": 50, "max": 5000, "step": 50, "help": "Relay closed time for Pulse" },
-        { "key": "boot", "type": "select", "label": "State at power-up", "def": 0, "options": ["Off", "On", "Last state"] },
-        { "key": "label", "type": "text", "label": "Label", "def": "Garage door", "maxLen": 24 },
-        { "key": "pulsebtn", "type": "button", "label": "Pulse now", "confirm": "Close the relay for the pulse length?" },
-        { "key": "last", "type": "info", "label": "Last switched" }
+        {
+          "key": "on",
+          "type": "toggle",
+          "label": "Relay on",
+          "def": false
+        },
+        {
+          "key": "pulse",
+          "type": "number",
+          "label": "Pulse length (ms)",
+          "def": 500,
+          "min": 50,
+          "max": 5000,
+          "step": 50,
+          "help": "Relay closed time for Pulse"
+        },
+        {
+          "key": "boot",
+          "type": "select",
+          "label": "State at power-up",
+          "def": 0,
+          "options": [
+            "Off",
+            "On",
+            "Last state"
+          ]
+        },
+        {
+          "key": "label",
+          "type": "text",
+          "label": "Label",
+          "def": "Garage door",
+          "maxLen": 24
+        },
+        {
+          "key": "pulsebtn",
+          "type": "button",
+          "label": "Pulse now",
+          "confirm": "Close the relay for the pulse length?"
+        },
+        {
+          "key": "last",
+          "type": "info",
+          "label": "Last switched"
+        }
       ],
-      "values": { "on": false, "pulse": 500, "boot": 0, "label": "Garage door", "last": "never" }
+      "values": {
+        "on": false,
+        "pulse": 500,
+        "boot": 0,
+        "label": "Garage door",
+        "last": "never"
+      }
     },
     {
-      "id": "mqtt", "title": "MQTT", "icon": "bell", "section": "Settings",
+      "id": "camera",
+      "title": "Camera",
+      "icon": "camera",
+      "section": "Settings",
+      "widget": "img:/mock-cam.svg",
       "fields": [
-        { "key": "enabled", "type": "toggle", "label": "Enabled", "def": false },
-        { "key": "host", "type": "text", "label": "Broker", "def": "", "maxLen": 64, "placeholder": "mqtt.local", "showIf": "enabled" },
-        { "key": "port", "type": "number", "label": "Port", "def": 1883, "min": 1, "max": 65535, "step": 1, "showIf": "enabled" },
-        { "key": "user", "type": "text", "label": "User", "def": "", "maxLen": 32, "showIf": "enabled" },
-        { "key": "pass", "type": "password", "label": "Password", "maxLen": 64, "showIf": "enabled" }
+        {
+          "key": "sensor",
+          "type": "info",
+          "label": "Sensor"
+        },
+        {
+          "key": "fps",
+          "type": "info",
+          "label": "Stream"
+        },
+        {
+          "key": "size",
+          "type": "select",
+          "label": "Resolution",
+          "def": 1,
+          "options": [
+            "QVGA 320x240",
+            "VGA 640x480",
+            "SVGA 800x600",
+            "HD 1280x720",
+            "SXGA 1280x1024",
+            "UXGA 1600x1200",
+            "FHD 1920x1080",
+            "QXGA 2048x1536"
+          ]
+        },
+        {
+          "key": "quality",
+          "type": "number",
+          "label": "JPEG quality",
+          "def": 12,
+          "min": 4,
+          "max": 63,
+          "step": 1,
+          "help": "Lower = better, larger"
+        },
+        {
+          "key": "bright",
+          "type": "number",
+          "label": "Brightness",
+          "def": 0,
+          "min": -2,
+          "max": 2,
+          "step": 1
+        },
+        {
+          "key": "contrast",
+          "type": "number",
+          "label": "Contrast",
+          "def": 0,
+          "min": -2,
+          "max": 2,
+          "step": 1
+        },
+        {
+          "key": "sat",
+          "type": "number",
+          "label": "Saturation",
+          "def": 0,
+          "min": -2,
+          "max": 2,
+          "step": 1
+        },
+        {
+          "key": "hmirror",
+          "type": "toggle",
+          "label": "Mirror",
+          "def": false
+        },
+        {
+          "key": "vflip",
+          "type": "toggle",
+          "label": "Flip",
+          "def": false
+        },
+        {
+          "key": "snap",
+          "type": "button",
+          "label": "Snapshot to SD"
+        },
+        {
+          "key": "lastsnap",
+          "type": "info",
+          "label": "Last snapshot"
+        }
       ],
-      "values": { "enabled": false, "host": "", "port": 1883, "user": "", "pass": false }
+      "values": {
+        "sensor": "OV5640",
+        "fps": "14.8 fps, 38 KB/frame",
+        "size": 1,
+        "quality": 12,
+        "bright": 0,
+        "contrast": 0,
+        "sat": 0,
+        "hmirror": false,
+        "vflip": false,
+        "lastsnap": "none"
+      }
     },
     {
-      "id": "sd", "title": "SD Card", "icon": "sdcard", "section": "Device",
+      "id": "mqtt",
+      "title": "MQTT",
+      "icon": "bell",
+      "section": "Settings",
       "fields": [
-        { "key": "status", "type": "info", "label": "Status" },
-        { "key": "type", "type": "info", "label": "Card type" },
-        { "key": "size", "type": "info", "label": "Capacity" },
-        { "key": "used", "type": "info", "label": "Used" },
-        { "key": "free", "type": "info", "label": "Free" }
+        {
+          "key": "enabled",
+          "type": "toggle",
+          "label": "Enabled",
+          "def": false
+        },
+        {
+          "key": "host",
+          "type": "text",
+          "label": "Broker",
+          "def": "",
+          "maxLen": 64,
+          "placeholder": "mqtt.local",
+          "showIf": "enabled"
+        },
+        {
+          "key": "port",
+          "type": "number",
+          "label": "Port",
+          "def": 1883,
+          "min": 1,
+          "max": 65535,
+          "step": 1,
+          "showIf": "enabled"
+        },
+        {
+          "key": "user",
+          "type": "text",
+          "label": "User",
+          "def": "",
+          "maxLen": 32,
+          "showIf": "enabled"
+        },
+        {
+          "key": "pass",
+          "type": "password",
+          "label": "Password",
+          "maxLen": 64,
+          "showIf": "enabled"
+        }
       ],
-      "values": { "status": "Mounted", "type": "SDHC / SDXC", "size": "29.7 GB", "used": "1.2 GB of 29.7 GB (4%)", "free": "28.5 GB" }
+      "values": {
+        "enabled": false,
+        "host": "",
+        "port": 1883,
+        "user": "",
+        "pass": false
+      }
     },
     {
-      "id": "system", "title": "System", "icon": "system", "section": "Device", "widget": "system", "reboot": true,
+      "id": "sd",
+      "title": "SD Card",
+      "icon": "sdcard",
+      "section": "Device",
       "fields": [
-        { "key": "hostname", "type": "text", "label": "Hostname", "def": "", "maxLen": 32, "placeholder": "automatic", "help": "Empty = automatic", "hostname": true },
-        { "key": "mdns", "type": "info", "label": "Address" },
-        { "key": "version", "type": "info", "label": "Firmware" },
-        { "key": "chip", "type": "info", "label": "Chip" },
-        { "key": "chipid", "type": "info", "label": "Chip ID" },
-        { "key": "flash", "type": "info", "label": "Flash" },
-        { "key": "heap", "type": "info", "label": "Memory" },
-        { "key": "heapmin", "type": "info", "label": "Lowest free memory" },
-        { "key": "heapblk", "type": "info", "label": "Largest free block" },
-        { "key": "psram", "type": "info", "label": "PSRAM" },
-        { "key": "uptime", "type": "info", "label": "Uptime" },
-        { "key": "reset", "type": "info", "label": "Last reset" },
-        { "key": "mac", "type": "info", "label": "MAC address" },
-        { "key": "sdk", "type": "info", "label": "Software" }
+        {
+          "key": "status",
+          "type": "info",
+          "label": "Status"
+        },
+        {
+          "key": "type",
+          "type": "info",
+          "label": "Card type"
+        },
+        {
+          "key": "size",
+          "type": "info",
+          "label": "Capacity"
+        },
+        {
+          "key": "used",
+          "type": "info",
+          "label": "Used"
+        },
+        {
+          "key": "free",
+          "type": "info",
+          "label": "Free"
+        }
       ],
-      "values": { "hostname": "", "mdns": "relay-box-a1b2.local", "version": "1.0.0", "chip": "ESP32-D0WD-V3 rev 3, 2 cores @ 240 MHz", "chipid": "A8032AA1B2C0", "flash": "4.0 MB", "heap": "182.4 KB free of 297.1 KB", "heapmin": "151.0 KB", "heapblk": "107.9 KB", "psram": "None", "uptime": "0m 0s", "reset": "Power on", "mac": "A8:03:2A:A1:B2:C0", "sdk": "Arduino 3.3.3, IDF v5.5.1" }
+      "values": {
+        "status": "Mounted",
+        "type": "SDHC / SDXC",
+        "size": "29.7 GB",
+        "used": "1.2 GB of 29.7 GB (4%)",
+        "free": "28.5 GB"
+      }
+    },
+    {
+      "id": "system",
+      "title": "System",
+      "icon": "system",
+      "section": "Device",
+      "widget": "system",
+      "reboot": true,
+      "fields": [
+        {
+          "key": "hostname",
+          "type": "text",
+          "label": "Hostname",
+          "def": "",
+          "maxLen": 32,
+          "placeholder": "automatic",
+          "help": "Empty = automatic",
+          "hostname": true
+        },
+        {
+          "key": "mdns",
+          "type": "info",
+          "label": "Address"
+        },
+        {
+          "key": "version",
+          "type": "info",
+          "label": "Firmware"
+        },
+        {
+          "key": "chip",
+          "type": "info",
+          "label": "Chip"
+        },
+        {
+          "key": "chipid",
+          "type": "info",
+          "label": "Chip ID"
+        },
+        {
+          "key": "flash",
+          "type": "info",
+          "label": "Flash"
+        },
+        {
+          "key": "heap",
+          "type": "info",
+          "label": "Memory"
+        },
+        {
+          "key": "heapmin",
+          "type": "info",
+          "label": "Lowest free memory"
+        },
+        {
+          "key": "heapblk",
+          "type": "info",
+          "label": "Largest free block"
+        },
+        {
+          "key": "psram",
+          "type": "info",
+          "label": "PSRAM"
+        },
+        {
+          "key": "uptime",
+          "type": "info",
+          "label": "Uptime"
+        },
+        {
+          "key": "reset",
+          "type": "info",
+          "label": "Last reset"
+        },
+        {
+          "key": "mac",
+          "type": "info",
+          "label": "MAC address"
+        },
+        {
+          "key": "sdk",
+          "type": "info",
+          "label": "Software"
+        }
+      ],
+      "values": {
+        "hostname": "",
+        "mdns": "relay-box-a1b2.local",
+        "version": "1.0.0",
+        "chip": "ESP32-D0WD-V3 rev 3, 2 cores @ 240 MHz",
+        "chipid": "A8032AA1B2C0",
+        "flash": "4.0 MB",
+        "heap": "182.4 KB free of 297.1 KB",
+        "heapmin": "151.0 KB",
+        "heapblk": "107.9 KB",
+        "psram": "None",
+        "uptime": "0m 0s",
+        "reset": "Power on",
+        "mac": "A8:03:2A:A1:B2:C0",
+        "sdk": "Arduino 3.3.3, IDF v5.5.1"
+      }
     }
   ],
   "wifi": {
-    "saved": ["HomeNet", "Workshop"],
+    "saved": [
+      "HomeNet",
+      "Workshop"
+    ],
     "nets": [
-      { "ssid": "HomeNet", "rssi": -58, "secure": true },
-      { "ssid": "Neighbour 5G", "rssi": -71, "secure": true },
-      { "ssid": "Workshop", "rssi": -80, "secure": true },
-      { "ssid": "Cafe Guest", "rssi": -84, "secure": false }
+      {
+        "ssid": "HomeNet",
+        "rssi": -58,
+        "secure": true
+      },
+      {
+        "ssid": "Neighbour 5G",
+        "rssi": -71,
+        "secure": true
+      },
+      {
+        "ssid": "Workshop",
+        "rssi": -80,
+        "secure": true
+      },
+      {
+        "ssid": "Cafe Guest",
+        "rssi": -84,
+        "secure": false
+      }
     ]
   }
 }

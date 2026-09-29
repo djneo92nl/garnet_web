@@ -11,7 +11,7 @@ behind build flags:
 | `GARNET_WEB_WIFI` | Wi-Fi: scan/join, 5 saved networks (strongest first), DHCP/static, captive-portal setup AP |
 | `GARNET_WEB_ETH` | Ethernet (RMII, e.g. WT32-ETH01). Primary link: while it is up, WiFi STA is off |
 | `GARNET_WEB_BT` | Bluetooth on/off + name. Compiled out on chips without BT (`SOC_BT_SUPPORTED`) |
-| `GARNET_WEB_SD` | SD card info. The app mounts the card and calls `gwSetSd()` |
+| `GARNET_WEB_SD` | SD card info. The app mounts the card (SPI `SD` or `SD_MMC`) and calls `gwSetSd()` |
 | (always) | System: hostname, chip/memory info, web password, backup/restore |
 | `GARNET_WEB_UI_FS` | Serve the UI from a filesystem (`gwSetUiFs`) instead of flash |
 
@@ -50,6 +50,12 @@ It targets Arduino-ESP32 **3.x** only, through the pioarduino platform
   mode mirrors `garnetDarkVariant()` from garnet_ui_core. The copy is terse
   and device-like, with no chatty explanations. On wide screens the whole
   UI is a centered column.
+- **Group widgets** (`GsGroup.widget`): `wifi`, `system`, and
+  `img:<src>`, a live image such as a camera MJPEG stream, where `:81/stream` means
+  a port on the device's own host. A stream must run on the app's *own*
+  httpd instance, because its handler never returns and would otherwise
+  block the settings UI. It is guarded with `gwAuthorized(req)`, since
+  the session cookie is sent to every port. See `examples/esp32s3/src/camera_group.cpp`.
 - The WiFi scan uses the retry-on-`WIFI_SCAN_FAILED` workaround from
   garnet_ui's WiFi selector (`ESP_ERR_WIFI_STATE` race with `WiFi.begin`).
 - Read the MAC from efuse (`esp_read_mac`), not `WiFi.macAddress()`. The

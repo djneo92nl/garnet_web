@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include <IPAddress.h>
+#include <esp_http_server.h>
 #include <garnet_settings.h>
 
 #if defined(GARNET_WEB_ETH)
@@ -9,6 +10,10 @@
 #endif
 #if defined(GARNET_WEB_SD)
 #include <SD.h>
+#include <soc/soc_caps.h>
+#if SOC_SDMMC_HOST_SUPPORTED
+#include <SD_MMC.h>
+#endif
 #endif
 
 // garnet_web - an iPadOS-settings-style browser UI for ESP32 devices that
@@ -75,6 +80,9 @@ void gwSetEth(const GwEthConfig &cfg); // call before gwBegin
 // garnet_web only reads card info from it. Call any time, even after
 // gwBegin - the SD group shows "Not mounted" until then.
 void gwSetSd(fs::SDFS &sd);
+#if SOC_SDMMC_HOST_SUPPORTED
+void gwSetSd(fs::SDMMCFS &sd); // boards with the card on the SDMMC bus (e.g. S3 camera boards)
+#endif
 #endif
 
 #if defined(GARNET_WEB_UI_FS)
@@ -100,4 +108,18 @@ String gwHostname();     // effective hostname (what name.local resolves)
 // hex digits, e.g. "2884855F1E08". Same value System shows as Chip ID -
 // use it to key a device in a backend/fleet list.
 String gwChipId();
+
+// For an app's own esp_http_server handlers (e.g. a camera stream on
+// another port): true when the request carries a valid garnet_web login.
+// The session cookie is per host, not per port, so it arrives on any
+// port of the device.
+bool gwAuthorized(httpd_req_t *req);
+
+// Group widgets (GsGroup.widget) the UI knows, besides the built-in
+// "wifi" and "system":
+//   "img:<src>"  a live image above the fields, e.g. an MJPEG stream.
+//                A <src> starting with ':' is a port on the device's own
+//                host - "img::81/stream" -> http://<device>:81/stream.
+//                The UI drops the image while the tab is hidden, which
+//                closes the stream connection.
 bool gwPortalActive();   // the setup AP is up (may overlap an uplink for a grace period)

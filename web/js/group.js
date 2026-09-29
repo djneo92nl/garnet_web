@@ -225,7 +225,12 @@ class GwGroup extends GwElement {
   render() {
     const g = this.group;
     if (!g) return nothing;
-    const widget = g.widget === "wifi" ? html`<gw-wifi></gw-wifi>` : nothing;
+    const widget =
+      g.widget === "wifi"
+        ? html`<gw-wifi></gw-wifi>`
+        : g.widget && g.widget.startsWith("img:")
+        ? html`<gw-img .spec=${g.widget.slice(4)}></gw-img>`
+        : nothing;
     const after = g.widget === "system" ? html`<gw-system-extra></gw-system-extra>` : nothing;
     return html`
       <div class="gw-header">

@@ -1,4 +1,5 @@
-// garnet_web example: ESP32-S3, WiFi + BLE.
+// garnet_web example: ESP32-S3 camera board - WiFi + BLE + SD card, with an
+// OV5640 / OV3660 live view and camera settings (camera_group.cpp).
 //
 // First boot: no WiFi saved -> join the open AP "S3 Demo-XXXX" from a
 // phone, the captive portal opens the settings page, sign in with the
@@ -6,6 +7,8 @@
 
 #include <Arduino.h>
 #include <garnet_web.h>
+
+#include "camera_group.h"
 
 namespace {
 
@@ -40,6 +43,7 @@ const GsGroup kDemoGroup =
 
 void setup() {
   Serial.begin(115200);
+  bool haveCamera = cameraBegin(); // registers "Camera" (first in the sidebar section)
   gsRegister(kDemoGroup);
 
   GwConfig cfg;
@@ -47,6 +51,7 @@ void setup() {
   cfg.defaultPassword = "changeme"; // change in System > Change Password
   cfg.appVersion = "0.1.0";
   gwBegin(cfg);
+  if (haveCamera) cameraStartStream();
 }
 
 void loop() {

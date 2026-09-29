@@ -363,3 +363,22 @@ a { color: inherit; }
 .gw-empty { padding: 40px 0; color: var(--text-2); }
 
 .gw-buttons { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 0; }
+
+/* Live image widget (camera stream) */
+.gw-img { margin: 4px 0 10px; }
+.gw-img img, .gw-img-off {
+  display: block;
+  width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  border: 1px solid var(--border);
+  background: #000;
+}
+.gw-img-off {
+  aspect-ratio: 4 / 3;
+  display: grid;
+  place-items: center;
+  margin-bottom: 6px;
+  color: #888;
+  font-size: 13px;
+}

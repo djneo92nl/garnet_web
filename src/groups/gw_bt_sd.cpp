@@ -66,7 +66,12 @@ void gwBtBegin() {}
 namespace {
 constexpr uint32_t kSdRefreshMs = 30000;
 
+// SD (SPI) and SD_MMC are unrelated classes with the same info methods;
+// keep whichever the app gave us.
 fs::SDFS *sd = nullptr;
+#if SOC_SDMMC_HOST_SUPPORTED
+fs::SDMMCFS *sdmmc = nullptr;
+#endif
 struct SdCache {
   bool mounted = false;
   uint8_t type = CARD_NONE;
@@ -123,19 +128,41 @@ void gwSetSd(fs::SDFS &card) {
   refreshedOnce = false; // sample on the next gwLoop
 }
 
+#if SOC_SDMMC_HOST_SUPPORTED
+void gwSetSd(fs::SDMMCFS &card) {
+  sdmmc = &card;
+  refreshedOnce = false;
+}
+#endif
+
+namespace {
+template <typename Card> SdCache sample(Card &card) {
+  SdCache c;
+  c.type = card.cardType();
+  c.mounted = c.type != CARD_NONE;
+  if (c.mounted) {
+    c.cardSize = card.cardSize();
+    c.total = card.totalBytes();
+    c.used = card.usedBytes();
+  }
+  return c;
+}
+} // namespace
+
 void gwSdLoop() {
-  if (sd == nullptr) return;
+  bool have = sd != nullptr;
+#if SOC_SDMMC_HOST_SUPPORTED
+  have = have || sdmmc != nullptr;
+#endif
+  if (!have) return;
   if (refreshedOnce && millis() - lastRefresh < kSdRefreshMs) return;
   refreshedOnce = true;
   lastRefresh = millis();
   SdCache c;
-  c.type = sd->cardType();
-  c.mounted = c.type != CARD_NONE;
-  if (c.mounted) {
-    c.cardSize = sd->cardSize();
-    c.total = sd->totalBytes();
-    c.used = sd->usedBytes();
-  }
+  if (sd) c = sample(*sd);
+#if SOC_SDMMC_HOST_SUPPORTED
+  else c = sample(*sdmmc);
+#endif
   gwLock();
   cache = c;
   gwUnlock();

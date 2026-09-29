@@ -121,6 +121,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def send_svg(self, text):
+        body = text.encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "image/svg+xml")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def err(self, status, msg, field=None):
         o = {"ok": False, "error": msg}
         if field:
@@ -161,6 +169,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if self.down():
             return
         path = self.path.split("?")[0]
+        if path == "/mock-cam.svg":
+            return self.send_svg(MOCK_CAM)
         if not path.startswith("/api/"):
             return super().do_GET()
         with LOCK:
@@ -262,6 +272,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 g = group(m.group(1))
                 if g and m.group(2) == "pulsebtn":
                     g["values"]["last"] = time.strftime("%H:%M:%S") + " (pulse)"
+                if g and m.group(2) == "snap":
+                    g["values"]["lastsnap"] = f"/snap_{int(time.time()) % 100000}.jpg"
                 return self.send_json({"ok": True})
             if path == "/api/password":
                 if body.get("current") != STATE["password"]:
@@ -301,6 +313,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 STATE["saved"].remove(body["ssid"])
                 return self.send_json({"ok": True})
             return self.err(404, "no such endpoint")
+
+
+# Stand-in for the device's MJPEG stream: an animated test card, so the
+# img widget (sizing, pause-when-hidden) can be checked without a camera.
+MOCK_CAM = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480">
+<rect width="640" height="480" fill="#223"/>
+<g fill="none" stroke="#556" stroke-width="1">
+<path d="M0 120h640M0 240h640M0 360h640M160 0v480M320 0v480M480 0v480"/></g>
+<circle cx="320" cy="240" r="60" fill="#87ceeb"><animate attributeName="cx" values="120;520;120" dur="4s" repeatCount="indefinite"/></circle>
+<text x="16" y="464" fill="#ccc" font-family="monospace" font-size="18">mock camera 640x480</text>
+</svg>"""
 
 
 def f_type(g, key):
