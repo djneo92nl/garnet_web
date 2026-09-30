@@ -5,6 +5,9 @@
   "keywords": "wifimanager, captive portal, settings, web ui, ethernet, esp32",
   "frameworks": "arduino",
   "platforms": "espressif32",
+  "dependencies": {
+    "garnet_settings": "https://github.com/djneo92nl/garnet_settings.git"
+  },
   "export": {
     "exclude": [
       "examples/*/.pio",

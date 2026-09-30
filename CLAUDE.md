@@ -129,8 +129,17 @@ scratch directory with `npm i lit esbuild`, write an entry file containing
 `export { LitElement, html, css, svg, nothing } from 'lit'`, then run
 `npx esbuild entry.js --bundle --minify --format=iife --global-name=Lit`.
 
+## Dependencies
+
+- `library.json` declares garnet_settings by its GitHub URL, so a project
+  only lists garnet_web (`https://github.com/djneo92nl/garnet_web.git`).
+- The examples here symlink both libraries (`symlink://../..`,
+  `symlink://../../../garnet_settings`) for library development.
+  PlatformIO then *also* clones garnet_settings from GitHub for the
+  library.json dependency, but the build uses the symlinked copy: its
+  include paths come first. So local garnet_settings edits are what gets
+  compiled. Check with `pio run -v | grep garnet_settings`.
+
 ## Not yet
 
-- `library.json` doesn't declare its `garnet_settings` dependency, because
-  that repo isn't on GitHub yet. Add it once it's pushed.
 - The garnet_ui / garnet_ui_lvgl menu adapter for garnet_settings.
