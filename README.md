@@ -33,6 +33,9 @@ lib_deps =
   https://github.com/<you>/garnet_web.git
 ```
 
-Examples: `examples/storage` (minimal park-a-board firmware with OTA, every Wi-Fi ESP32), `examples/esp32s3_camera` (camera live view + SD), `examples/wt32_eth01` (Ethernet), `examples/cyd` (SD).
+Examples: `examples/esp32s3_camera` (camera live view + SD), `examples/wt32_eth01` (Ethernet), `examples/cyd` (SD).
 UI development without hardware: `python3 tools/mock_server.py`.
+The storage / bench firmware built on this library (every Wi-Fi ESP32, OTA,
+file manager, I2C/GPIO/serial tools) lives in its own repo,
+[esp32-storage](../esp32-storage).
 See CLAUDE.md for the design rules.

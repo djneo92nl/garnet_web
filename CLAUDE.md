@@ -87,7 +87,7 @@ keep replacing each other's core. Bump all examples together.
   the precompiled IDF driver instead (I2C scan: `i2c_master_probe`, not Wire, which cost every build
   27 KB).
 - **ESP32-P4 Wi-Fi co-processor (ESP-Hosted on a C6):** see
-  `examples/storage/README.md` for what happened on a Waveshare
+  `../esp32-storage/README.md` for what happened on a Waveshare
   P4-Module-DEV-KIT. Rules learned:
   - Never probe the C6 with a Wi-Fi or version RPC. Old C6 firmware doesn't
     implement the version RPC, and a broken image crashes on the first Wi-Fi
@@ -109,9 +109,13 @@ keep replacing each other's core. Bump all examples together.
   (the password is in `tools/fixtures/device.json`). The mock serves `web/`
   unbundled, so edit and reload. It re-implements the API, so keep it in
   sync with `gw_server.cpp`.
-- Firmware: `pio run` in `examples/esp32s3_camera`, `examples/wt32_eth01`,
-  `examples/cyd` and `examples/storage`. `storage` builds 6 chip envs, so
-  it's the portability check. The examples symlink this repo and `../garnet_settings`.
+- Firmware: `pio run` in `examples/esp32s3_camera`, `examples/wt32_eth01`
+  and `examples/cyd`. The examples symlink this repo and `../garnet_settings`.
+- Portability and size check: `pio run` in
+  [`../esp32-storage`](../esp32-storage), the storage/bench firmware, which
+  lives in its own repo. It builds 7 chips (ESP32, S2, S3, C3, C5, C6, P4)
+  with nearly every flag, and its C5 and C6 builds are within a few KB of
+  their OTA slot. Anything that grows garnet_web shows up there first.
 - After changing `web/`, commit the regenerated `src/gw_ui_gz.h`
   (`python3 tools/build_ui.py`). `--check` verifies it is current.
   PlatformIO's Python may link a different zlib than your shell's, so a
