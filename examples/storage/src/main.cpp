@@ -45,6 +45,14 @@ void setup() {
   // Formatted on first boot.
   if (LittleFS.begin(true)) gwAddFs("flash", "Flash", LittleFS);
 
+#if defined(GARNET_WEB_ETH) && defined(ETH_PHY_TYPE) && defined(ETH_PHY_MDC)
+  // Boards whose variant defines their Ethernet wiring (e.g. the ESP32-P4
+  // reference layout) get Ethernet as the primary link, with Wi-Fi fallback.
+  static const GwEthConfig kBoardEth = {ETH_PHY_TYPE, ETH_PHY_ADDR, ETH_PHY_MDC,
+                                        ETH_PHY_MDIO, ETH_PHY_POWER, ETH_CLK_MODE};
+  gwSetEth(kBoardEth);
+#endif
+
   GwConfig cfg;
   cfg.name = ESP.getChipModel(); // "ESP32-C3" etc: AP name + hostname prefix
   cfg.defaultPassword = "changeme";

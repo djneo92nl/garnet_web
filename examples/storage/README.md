@@ -28,13 +28,18 @@ you ask it to, so it's harmless on any board.
 | `esp32c3` | ESP32-C3 | 1.29 MB |
 | `esp32c5` | ESP32-C5 | 1.26 MB, without Clock and Hardware |
 | `esp32c6` | ESP32-C6 | 1.29 MB |
+| `esp32p4` | ESP32-P4 + C6 co-processor, Ethernet | 1.24 MB |
 
 Each OTA slot is 1.31 MB. The C3 and C6 have 17–24 KB left. The C5's
 Wi-Fi 6 stack and drivers are bigger, so its build leaves out Clock and
 Hardware to fit.
 
-The ESP32-H2 has no Wi-Fi and the ESP32-P4 has no radio of its own, so
-neither is included. A bare "start an AP" Arduino sketch is already
+The ESP32-H2 has no Wi-Fi, so it isn't included. The ESP32-P4 has no radio
+of its own. `esp32p4` targets boards on Espressif's reference layout
+(tested: Waveshare ESP32-P4-Module-DEV-KIT, chip v1.3): Wi-Fi goes through
+the on-board ESP32-C6 over SDIO, and Ethernet is the primary link on the
+variant's RMII pins. Its console is on the P4's USB port. The prebuilt core
+supports P4 chips below revision v3.0 only. A bare "start an AP" Arduino sketch is already
 0.9–1.0 MB. garnet_web, LittleFS and OTA add the rest.
 
 ```
