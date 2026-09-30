@@ -168,11 +168,35 @@ void gwAuthLogout(httpd_req_t *req) {
   gwUnlock();
 }
 
+void gwAuthEndAllSessions() {
+  gwLock();
+  for (Session &s : sessions) s.token[0] = '\0';
+  gwUnlock();
+}
+
+bool gwAuthResetPassword() {
+  // No stored hash = GwConfig.defaultPassword applies again (see top).
+  bool ok = true;
+  if (gsNamespaceExists(kNs)) {
+    Preferences p;
+    ok = p.begin(kNs, false) && p.clear();
+    p.end();
+  }
+  failures = 0;
+  lockedUntil = 0;
+  gwAuthEndAllSessions();
+  return ok;
+}
+
 bool gwAuthChangePassword(const String &current, const String &next, String &why) {
   if (!passwordMatches(current)) {
     why = "Current password is wrong";
     return false;
   }
+  return gwAuthSetPassword(next, why);
+}
+
+bool gwAuthSetPassword(const String &next, String &why) {
   if (next.length() < kMinPasswordLen) {
     why = "Use at least " + String(kMinPasswordLen) + " characters";
     return false;

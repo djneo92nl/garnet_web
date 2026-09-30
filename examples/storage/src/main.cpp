@@ -17,6 +17,27 @@
 
 namespace {
 
+// Chip family for the AP name / hostname. Not ESP.getChipModel(): on the
+// classic ESP32 that's the die variant ("ESP32-D0WD-V3"), which makes the
+// AP "ESP32-D0WD-V3-A1F0". System > Chip still shows the full model.
+#if CONFIG_IDF_TARGET_ESP32
+constexpr const char *kChipFamily = "ESP32";
+#elif CONFIG_IDF_TARGET_ESP32S2
+constexpr const char *kChipFamily = "ESP32-S2";
+#elif CONFIG_IDF_TARGET_ESP32S3
+constexpr const char *kChipFamily = "ESP32-S3";
+#elif CONFIG_IDF_TARGET_ESP32C3
+constexpr const char *kChipFamily = "ESP32-C3";
+#elif CONFIG_IDF_TARGET_ESP32C5
+constexpr const char *kChipFamily = "ESP32-C5";
+#elif CONFIG_IDF_TARGET_ESP32C6
+constexpr const char *kChipFamily = "ESP32-C6";
+#elif CONFIG_IDF_TARGET_ESP32P4
+constexpr const char *kChipFamily = "ESP32-P4";
+#else
+constexpr const char *kChipFamily = CONFIG_IDF_TARGET;
+#endif
+
 // What you'd otherwise write on masking tape.
 const GsField kBoardFields[] = {
     gsWithPlaceholder(gsText("label", "Label", "", 32), "e.g. spare #3"),
@@ -31,7 +52,7 @@ void printStatus(GwNetMode mode) {
                      : mode == GwNetMode::Ethernet ? "Ethernet"
                      : mode == GwNetMode::Portal   ? "setup AP"
                                                    : "offline";
-  Serial.printf("[storage] %s %s  id %s  http://%s/  (%s.local)\n", ESP.getChipModel(), what,
+  log_printf("[storage] %s %s  id %s  http://%s/  (%s.local)\n", kChipFamily, what,
                 gwChipId().c_str(), gwNetIP().toString().c_str(), gwHostname().c_str());
 }
 
@@ -54,7 +75,7 @@ void setup() {
 #endif
 
   GwConfig cfg;
-  cfg.name = ESP.getChipModel(); // "ESP32-C3" etc: AP name + hostname prefix
+  cfg.name = kChipFamily; // AP name + hostname prefix: "ESP32-C3-1E08"
   cfg.defaultPassword = "changeme";
   cfg.appVersion = "storage 1.0";
   gwBegin(cfg);

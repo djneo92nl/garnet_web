@@ -39,6 +39,11 @@ bool gwAuthCheck(httpd_req_t *req);                  // valid session cookie?
 bool gwAuthLogin(const String &password, String &tokenOut, uint32_t &retryAfterS);
 void gwAuthLogout(httpd_req_t *req);
 bool gwAuthChangePassword(const String &current, const String &next, String &why);
+// No current password asked - only for callers that already proved physical
+// access (the serial console). Both end every web session.
+bool gwAuthSetPassword(const String &next, String &why);
+bool gwAuthResetPassword(); // back to GwConfig.defaultPassword
+void gwAuthEndAllSessions();
 
 // ---- Server -------------------------------------------------------------------------
 void gwServerBegin();
@@ -93,12 +98,18 @@ void *gwWifiStatusJson();
 void gwWifiRequestScan();                                  // runs on gwLoop's task
 bool gwWifiAddNet(const String &ssid, const String &pass); // saves, caller reboots
 bool gwWifiForgetNet(const String &ssid);
+uint8_t gwWifiSavedSsids(String out[], uint8_t max); // copies the saved SSIDs
 #endif
 
 // ---- Files -------------------------------------------------------------------------
 #if defined(GARNET_WEB_FILES)
 // Handles every /api/fs* request (already authenticated).
 esp_err_t gwFilesHandle(httpd_req_t *req, const String &path, bool post);
+#endif
+
+// ---- Serial console commands -----------------------------------------------------
+#if defined(GARNET_WEB_SERIAL)
+void gwSerialLoop();
 #endif
 
 // ---- Built-in groups -------------------------------------------------------------

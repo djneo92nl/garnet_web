@@ -19,10 +19,15 @@ behind build flags:
 | `GARNET_WEB_LOG` | Log: `log_x` / `ESP_LOGx` output live in the browser (8 KB ring, `ets_install_putc2` + `esp_log_set_vprintf`) |
 | `GARNET_WEB_HW` | Hardware: I2C scan (IDF `i2c_master_probe`), GPIO read/pull/drive/ADC, input sweep. Flash/PSRAM pins refused, console pins read-only |
 | `GARNET_WEB_UART` | Serial: `Serial1` monitor on configurable pins/baud, text/hex view, send |
+| `GARNET_WEB_SERIAL` | Serial console commands: `gw wifi "<ssid>" "<pass>"`, `gw forget`, `gw password reset` / `gw password "<new>"`, `gw status`, `gw help`. Replies start `OK`/`ERR`; non-`gw` lines are ignored |
 | `GARNET_WEB_UI_FS` | Serve the UI from a filesystem (`gwSetUiFs`) instead of flash |
 
 It targets Arduino-ESP32 **3.x** only, through the pioarduino platform
-(stock PlatformIO espressif32 is still 2.x).
+(stock PlatformIO espressif32 is still 2.x). Every example pins the **same
+release**, currently `55.03.312-1` (Arduino 3.3.12, IDF 5.5.5), which needs
+PlatformIO Core ≥ 6.2.0. PlatformIO keeps a single
+`framework-arduinoespressif32` package, so projects on different releases
+keep replacing each other's core. Bump all examples together.
 
 ## Layout
 
@@ -81,6 +86,17 @@ It targets Arduino-ESP32 **3.x** only, through the pioarduino platform
   template that compiles in the app's file (`gwSetSd`, `gwAddFs`), or use
   the precompiled IDF driver instead (I2C scan: `i2c_master_probe`, not Wire, which cost every build
   27 KB).
+- **ESP32-P4 Wi-Fi co-processor (ESP-Hosted on a C6):** see
+  `examples/storage/README.md` for what happened on a Waveshare
+  P4-Module-DEV-KIT. Rules learned:
+  - Never probe the C6 with a Wi-Fi or version RPC. Old C6 firmware doesn't
+    implement the version RPC, and a broken image crashes on the first Wi-Fi
+    call, after which it can't be reached over SDIO again.
+  - The co-processor update starts only the link (`hostedInitWiFi()`, which
+    waits for it from 3.3.12 on) and uses the core's `hostedBeginUpdate…`
+    API. It is gated to Arduino ≥ 3.3.12 in `src/gw_coproc.h`.
+  - An OTA can't change the C6's partition table. A newer, bigger image may
+    not fit its factory slot.
 - Read the MAC from efuse (`esp_read_mac`), not `WiFi.macAddress()`. The
   latter returns zeros before the driver starts, which was hit on hardware
   as an AP named "-0000".

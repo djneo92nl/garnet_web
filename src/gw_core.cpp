@@ -171,6 +171,9 @@ void gwLoop() {
 #if defined(GARNET_WEB_UART)
   gwUartLoop();
 #endif
+#if defined(GARNET_WEB_SERIAL)
+  gwSerialLoop();
+#endif
   gwDeferLoop();
 }
 

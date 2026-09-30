@@ -5,6 +5,7 @@
 #if defined(GARNET_WEB_OTA)
 #include <esp_ota_ops.h>
 #endif
+#include "../gw_coproc.h"
 
 // System group - always compiled in. Everything a "what is this device
 // and how is it doing" page needs, plus the hostname (shared by WiFi and
@@ -73,6 +74,27 @@ String slotStr() {
 }
 #endif
 
+#if GW_COPROC
+// Wi-Fi co-processor firmware vs what this build expects. Only asked while
+// the SDIO link is up (Wi-Fi active, or during an update) - otherwise every
+// RPC would fail and log. Cached: it's an RPC round trip over SDIO, and the
+// page polls Info rows every 2 s.
+String coprocStr() {
+  uint32_t hM, hm, hp;
+  hostedGetHostVersion(&hM, &hm, &hp);
+  String host = String(hM) + "." + String(hm) + "." + String(hp);
+  if (!hostedIsInitialized()) return "Link off (Ethernet active), host v" + host;
+  static String cached;
+  if (cached.length()) return cached;
+  uint32_t M = 0, m = 0, p = 0;
+  hostedGetSlaveVersion(&M, &m, &p);
+  if (M == 0 && m == 0 && p == 0) return "Older firmware (no version report), host v" + host;
+  String slave = String(M) + "." + String(m) + "." + String(p);
+  cached = "ESP-Hosted v" + slave + (slave == host ? String(" (matches host)") : ", host v" + host);
+  return cached;
+}
+#endif
+
 String hostnameStr() { return gwHostname() + ".local"; }
 
 bool hostnameOrEmpty(const String &v) { return v.length() == 0 || gsValidHostname(v); }
@@ -97,6 +119,9 @@ const GsField kFields[] = {
     gsInfo("sdk", "Software", sdkStr),
 #if defined(GARNET_WEB_OTA)
     gsInfo("slot", "Firmware slot", slotStr),
+#endif
+#if GW_COPROC
+    gsInfo("coproc", "Wi-Fi co-processor", coprocStr),
 #endif
 };
 

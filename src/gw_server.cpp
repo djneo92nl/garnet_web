@@ -5,6 +5,7 @@
 #if defined(GARNET_WEB_OTA)
 #include <esp_ota_ops.h>
 #endif
+#include "gw_coproc.h"
 
 #if defined(GARNET_WEB_UI_FS)
 #include <FS.h>
@@ -142,6 +143,9 @@ esp_err_t handleSession(httpd_req_t *req) {
   cJSON_AddBoolToObject(o, "portal", gwPortalActive());
 #if defined(GARNET_WEB_OTA)
   cJSON_AddBoolToObject(o, "ota", true);
+#if GW_COPROC_OTA
+  cJSON_AddBoolToObject(o, "coproc", true);
+#endif
 #endif
   return sendJson(req, o);
 }
@@ -294,6 +298,67 @@ esp_err_t handleOta(httpd_req_t *req) {
 }
 #endif
 
+#if GW_COPROC_OTA
+// Start only the SDIO link to the C6 - not the Wi-Fi driver. Arduino
+// >= 3.3.12's hostedInit() waits for the link (esp_hosted_connect_to_slave),
+// so no Wi-Fi RPC is ever sent. That matters: a C6 on a mismatched image can
+// crash on the first Wi-Fi call (seen on hardware: WifiGetProtocol, 0x12a),
+// and then it could never be updated back over SDIO.
+void startLink(void *ok) { *static_cast<bool *>(ok) = hostedIsInitialized() || hostedInitWiFi(); }
+
+// Co-processor update: the ESP-Hosted slave .bin (the core ships the one
+// matching its host side: framework-arduinoespressif32-libs/hosted/
+// esp32c6-v<host version>.bin), streamed over SDIO into the C6's own OTA
+// slot via the core's hostedBeginUpdate/Write/End/Activate. The C6 checks
+// the image on End; Activate may fail on old C6 firmware, which restarts
+// into the new image by itself - non-critical, as the core documents.
+esp_err_t handleCoprocOta(httpd_req_t *req) {
+  if (req->content_len == 0) return sendError(req, "422 Unprocessable Entity", "Empty file");
+  bool up = false;
+  if (!gwRunOnLoop(startLink, &up, sizeof(up), 20000) || !up) {
+    return sendError(req, "503 Service Unavailable", "Co-processor not responding");
+  }
+  if (!hostedBeginUpdate()) {
+    return sendError(req, "500 Internal Server Error", "Co-processor refused the update");
+  }
+  constexpr size_t kChunk = 1500; // one RPC message's worth
+  uint8_t *buf = static_cast<uint8_t *>(malloc(kChunk));
+  if (buf == nullptr) return sendError(req, "500 Internal Server Error", "out of memory");
+  size_t got = 0;
+  bool ok = true;
+  while (got < req->content_len) {
+    int r = httpd_req_recv(req, reinterpret_cast<char *>(buf), min(kChunk, req->content_len - got));
+    if (r == HTTPD_SOCK_ERR_TIMEOUT) continue;
+    if (r <= 0) {
+      ok = false;
+      break;
+    }
+    if (got == 0 && buf[0] != 0xE9) { // ESP image magic - don't even start on a wrong file
+      free(buf);
+      hostedEndUpdate();
+      return sendError(req, "422 Unprocessable Entity", "Not an ESP firmware image");
+    }
+    if (!hostedWriteUpdate(buf, r)) {
+      ok = false;
+      break;
+    }
+    got += r;
+  }
+  free(buf);
+  if (!ok) {
+    hostedEndUpdate();
+    return sendError(req, "500 Internal Server Error", "Upload interrupted");
+  }
+  if (!hostedEndUpdate()) {
+    return sendError(req, "422 Unprocessable Entity", "Co-processor rejected the image (wrong chip?)");
+  }
+  hostedActivateUpdate(); // failure is expected on old C6 firmware (see above)
+  log_i("garnet_web: co-processor OTA %u bytes, rebooting", (unsigned)got);
+  gwDeferReboot(3000); // let the C6 restart into the new image first
+  return sendOk(req, true);
+}
+#endif
+
 esp_err_t handleApiPost(httpd_req_t *req) {
   // Custom header = not a plain cross-site form/fetch (those can't set
   // one without a CORS preflight, which we never answer).
@@ -308,6 +373,9 @@ esp_err_t handleApiPost(httpd_req_t *req) {
   if (!requireAuth(req)) return ESP_OK;
 #if defined(GARNET_WEB_OTA)
   if (path == "/api/ota") return handleOta(req);
+#if GW_COPROC_OTA
+  if (path == "/api/ota/coproc") return handleCoprocOta(req);
+#endif
 #endif
 #if defined(GARNET_WEB_FILES)
   if (path.startsWith("/api/fs/")) return gwFilesHandle(req, path, true);

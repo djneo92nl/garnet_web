@@ -629,6 +629,14 @@ bool gwWifiAddNet(const String &ssid, const String &pass) {
   return ok;
 }
 
+uint8_t gwWifiSavedSsids(String out[], uint8_t max) {
+  gwLock();
+  uint8_t n = savedCount < max ? savedCount : max;
+  for (uint8_t i = 0; i < n; i++) out[i] = saved[i].ssid;
+  gwUnlock();
+  return n;
+}
+
 bool gwWifiForgetNet(const String &ssid) {
   gwLock();
   bool found = false;

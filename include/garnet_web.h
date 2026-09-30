@@ -28,6 +28,9 @@
 //   GARNET_WEB_LOG   Log: the device log (log_x, ESP_LOGx) live in the browser
 //   GARNET_WEB_HW    Hardware: I2C scan, GPIO / ADC tester, input sweep
 //   GARNET_WEB_UART  Serial: Serial1 monitor on chosen pins, with send
+//   GARNET_WEB_SERIAL  text commands on Serial ("gw wifi <ssid> <pass>", "gw status"
+//                    ...) to provision a board over USB - reads Serial input,
+//                    so leave it off if the app uses Serial for its own input
 //   GARNET_WEB_OTA   firmware update (.bin upload) under System - needs a
 //                    partition table with two OTA slots (e.g. default.csv)
 //   (always)         System: chip/memory/uptime info, hostname, web password,

@@ -786,13 +786,17 @@ customElements.define("gw-img", GwImg);
 class GwSystemExtra extends GwElement {
   static properties = { note: { state: true }, uploading: { state: true }, progress: { state: true } };
 
-  async ota(e) {
+  // `coproc`: the Wi-Fi co-processor (ESP-Hosted on an ESP32-P4's C6)
+  // instead of this chip.
+  async ota(e, coproc = false) {
     const file = e.target.files[0];
     e.target.value = "";
     if (!file) return;
     const ok = await gwDialog({
-      title: "Update Firmware",
-      text: `Install \u201c${file.name}\u201d (${Math.round(file.size / 1024)} KB) and restart? Settings are kept.`,
+      title: coproc ? "Update Wi-Fi Co-processor" : "Update Firmware",
+      text: coproc
+        ? `Install \u201c${file.name}\u201d (${Math.round(file.size / 1024)} KB) on the Wi-Fi co-processor and restart? Use the ESP-Hosted image matching this build.`
+        : `Install \u201c${file.name}\u201d (${Math.round(file.size / 1024)} KB) and restart? Settings are kept.`,
       ok: "Install",
     });
     if (!ok) return;
@@ -802,7 +806,7 @@ class GwSystemExtra extends GwElement {
     // XHR, not fetch: fetch has no upload progress, and a 1 MB upload over
     // a weak AP link takes long enough that a progress readout matters.
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/api/ota");
+    xhr.open("POST", coproc ? "/api/ota/coproc" : "/api/ota");
     xhr.setRequestHeader("X-GW", "1");
     xhr.setRequestHeader("Content-Type", "application/octet-stream");
     xhr.upload.onprogress = (ev) => {
@@ -902,8 +906,13 @@ class GwSystemExtra extends GwElement {
               <button class="gw-btn" ?disabled=${this.uploading} @click=${() => this.querySelector("#gw-ota").click()}>
                 ${this.uploading ? `Uploading ${this.progress}%` : "Update\u2026"}
               </button>
+              ${window.gwSession.coproc
+                ? html`<button class="gw-btn" ?disabled=${this.uploading} @click=${() => this.querySelector("#gw-ota-cp").click()}>
+                    Update Wi-Fi Co-processor\u2026</button>`
+                : nothing}
             </div>
-            <input id="gw-ota" type="file" accept=".bin,application/octet-stream" hidden @change=${this.ota} />`
+            <input id="gw-ota" type="file" accept=".bin,application/octet-stream" hidden @change=${(e) => this.ota(e)} />
+            <input id="gw-ota-cp" type="file" accept=".bin,application/octet-stream" hidden @change=${(e) => this.ota(e, true)} />`
         : nothing}
     `;
   }
