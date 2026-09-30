@@ -131,8 +131,12 @@ scratch directory with `npm i lit esbuild`, write an entry file containing
 
 ## Dependencies
 
-- `library.json` declares garnet_settings by its GitHub URL, so a project
-  only lists garnet_web (`https://github.com/djneo92nl/garnet_web.git`).
+- `library.json` declares garnet_settings by its GitHub URL pinned to a tag
+  (`#v0.1.0`), so a project only lists garnet_web
+  (`https://github.com/djneo92nl/garnet_web.git#v0.1.0`).
+- Releasing: tag garnet_settings first, pin that tag in `library.json`,
+  commit, then tag garnet_web on that commit (and bump `version` in both
+  library.json files), so every tag's dependencies are tags too.
 - The examples here symlink both libraries (`symlink://../..`,
   `symlink://../../../garnet_settings`) for library development.
   PlatformIO then *also* clones garnet_settings from GitHub for the
