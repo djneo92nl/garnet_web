@@ -28,7 +28,7 @@ void loop() { gwLoop(); }
 ```ini
 platform = https://github.com/pioarduino/platform-espressif32/releases/download/55.03.312-1/platform-espressif32.zip
 build_flags = -D GARNET_WEB_WIFI -D GARNET_WEB_BT
-lib_deps = https://github.com/djneo92nl/garnet_web.git#v0.1.0   ; pulls in garnet_settings
+lib_deps = https://github.com/djneo92nl/garnet_web.git#v0.1.1   ; pulls in garnet_settings
 ```
 
 Examples: `examples/esp32s3_camera` (camera live view + SD), `examples/wt32_eth01` (Ethernet), `examples/cyd` (SD).

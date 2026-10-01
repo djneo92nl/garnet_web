@@ -133,7 +133,7 @@ scratch directory with `npm i lit esbuild`, write an entry file containing
 
 - `library.json` declares garnet_settings by its GitHub URL pinned to a tag
   (`#v0.1.0`), so a project only lists garnet_web
-  (`https://github.com/djneo92nl/garnet_web.git#v0.1.0`).
+  (`https://github.com/djneo92nl/garnet_web.git#v0.1.1`).
 - Releasing: tag garnet_settings first, pin that tag in `library.json`,
   commit, then tag garnet_web on that commit (and bump `version` in both
   library.json files), so every tag's dependencies are tags too.

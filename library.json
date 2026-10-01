@@ -1,6 +1,6 @@
 {
   "name": "garnet_web",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Garnet-styled two-column web settings UI for ESP32 that replaces WiFiManager. It renders garnet_settings groups in the browser and adds built-in WiFi (scan, saved networks, captive portal), Ethernet, Bluetooth, SD card and System groups, enabled by build flag. Built on esp_http_server with the UI embedded in flash.",
   "keywords": "wifimanager, captive portal, settings, web ui, ethernet, esp32",
   "frameworks": "arduino",
