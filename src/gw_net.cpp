@@ -123,6 +123,7 @@ void ethBegin() {
 
 constexpr uint32_t kConnectTimeoutMs = 12000; // per saved network
 constexpr uint32_t kRetryMs = 120000;         // portal: retry saved networks this often
+constexpr uint32_t kPortalRetryMs = 2000;     // setup AP failed to start: try again after this
 constexpr uint8_t kScanRetries = 6;
 constexpr const char *kNetsNs = "gw_wifinets";
 
@@ -326,12 +327,30 @@ void connectCandidate() {
 
 void portalStart() {
   if (portalOn) return;
+  // softAP() can fail (see below); don't hammer it from every loop pass.
+  static uint32_t lastTry = 0;
+  if (lastTry != 0 && millis() - lastTry < kPortalRetryMs) return;
+  lastTry = millis();
+
   apSsid = String(gwCfg.name ? gwCfg.name : "ESP32") + "-" + macSuffix();
+  // With a saved network out of range the driver keeps rejoining it on its
+  // own, scanning every channel and dragging the AP along: phones then see
+  // the AP but can't finish joining. The state machine retries saved
+  // networks itself (kRetryMs, only while nobody is on the AP), so the
+  // driver's own reconnect stays off until an uplink is back (gwNetLoop).
+  WiFi.setAutoReconnect(false);
+  WiFi.disconnect(false);
   // AP+STA: STA stays available for scanning and the periodic retry.
   WiFi.mode(WIFI_AP_STA);
   // Open AP by design: the web UI password guards the settings, and an
   // AP password printed nowhere would just lock the owner out.
-  WiFi.softAP(apSsid.c_str());
+  // softAP() fails when the STA side is still busy with a join attempt,
+  // which happens when the portal opens right after a saved network
+  // failed. Leave portalOn false then, so the next pass retries.
+  if (!WiFi.softAP(apSsid.c_str())) {
+    log_e("garnet_web: starting setup AP '%s' failed, retrying", apSsid.c_str());
+    return;
+  }
   dns.start(53, "*", WiFi.softAPIP());
   portalOn = true;
   log_i("garnet_web: setup AP '%s' at http://%s/", apSsid.c_str(),
@@ -511,6 +530,17 @@ void gwNetLoop() {
     staLoop();
     // Portal when there is nothing to try, every saved network failed, or
     // the time budget ran out while still attempting them.
+    // The AP can drop while the portal counts as open (e.g. around a retry
+    // scan): notice it, so portalStart() brings it back.
+    static uint32_t lastApCheck = 0;
+    if (portalOn && now - lastApCheck > 1000) {
+      lastApCheck = now;
+      if (WiFi.softAPSSID().isEmpty()) {
+        log_w("garnet_web: setup AP '%s' went down, restarting", apSsid.c_str());
+        dns.stop();
+        portalOn = false;
+      }
+    }
     bool spent = savedCount == 0 || sta == Sta::Wait ||
                  (downSince != 0 && now - downSince > gwCfg.portalTimeoutMs);
     if (!portalOn && spent) portalStart();
@@ -529,6 +559,10 @@ void gwNetLoop() {
 
   if (uplinkUp()) {
     downSince = 0;
+#if defined(GARNET_WEB_WIFI)
+    // portalStart() turned it off; brief drops are its job again (Sta::Connected)
+    if (!WiFi.getAutoReconnect()) WiFi.setAutoReconnect(true);
+#endif
     if (uplinkSince == 0) uplinkSince = now;
     if (portalOn && now - uplinkSince > kPortalGraceMs && WiFi.softAPgetStationNum() == 0) {
       portalStop();
